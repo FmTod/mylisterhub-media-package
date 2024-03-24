@@ -13,7 +13,7 @@ dependencies:
     version: 5.4.2
   vite-plugin-dts:
     specifier: ^3.6.4
-    version: 3.7.3(@types/node@20.11.30)(rollup@2.79.1)(typescript@5.4.2)(vite@5.2.5)
+    version: 3.7.3(@types/node@20.11.30)(rollup@2.79.1)(typescript@5.4.2)(vite@5.2.6)
   vue-api-query:
     specifier: ^1.11.0
     version: 1.11.0
@@ -45,7 +45,7 @@ devDependencies:
     version: 22.0.12(typescript@5.4.2)
   vite:
     specifier: ^5.0.4
-    version: 5.2.5(@types/node@20.11.30)
+    version: 5.2.6(@types/node@20.11.30)
 
 packages:
 
@@ -6810,7 +6810,7 @@ packages:
     engines: {node: '>= 0.10'}
     dev: false
 
-  /vite-plugin-dts@3.7.3(@types/node@20.11.30)(rollup@2.79.1)(typescript@5.4.2)(vite@5.2.5):
+  /vite-plugin-dts@3.7.3(@types/node@20.11.30)(rollup@2.79.1)(typescript@5.4.2)(vite@5.2.6):
     resolution: {integrity: sha512-26eTlBYdpjRLWCsTJebM8vkCieE+p9gP3raf+ecDnzzK5E3FG6VE1wcy55OkRpfWWVlVvKkYFe6uvRHYWx7Nog==}
     engines: {node: ^14.18.0 || >=16.0.0}
     peerDependencies:
@@ -6826,7 +6826,7 @@ packages:
       debug: 4.3.4
       kolorist: 1.8.0
       typescript: 5.4.2
-      vite: 5.2.5(@types/node@20.11.30)
+      vite: 5.2.6(@types/node@20.11.30)
       vue-tsc: 1.8.27(typescript@5.4.2)
     transitivePeerDependencies:
       - '@types/node'
@@ -6834,8 +6834,8 @@ packages:
       - supports-color
     dev: false
 
-  /vite@5.2.5(@types/node@20.11.30):
-    resolution: {integrity: sha512-a+rTAqkMmJ2hQpC6dfAyyc5M0YLH3BGZKLpA6pU9AhzlcK1YZS8P/ov9OcdHxaf+j0sM0DIh/txH7ydTHUpISg==}
+  /vite@5.2.6(@types/node@20.11.30):
+    resolution: {integrity: sha512-FPtnxFlSIKYjZ2eosBQamz4CbyrTizbZ3hnGJlh/wMtCrlp1Hah6AzBLjGI5I2urTfNnpovpHdrL6YRuBOPnCA==}
     engines: {node: ^18.0.0 || >=20.0.0}
     hasBin: true
     peerDependencies:
