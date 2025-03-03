@@ -2,6 +2,15 @@
 
 All notable changes to `media` will be documented in this file.
 
+## v11.0.0 - 2025-03-03
+
+### What's Changed
+
+* chore(deps): update commitlint monorepo to v19.7.1 by @renovate in https://github.com/FmTod/mylisterhub-media-package/pull/73
+* chore(deps): update dependency semantic-release to v24.2.2 by @renovate in https://github.com/FmTod/mylisterhub-media-package/pull/74
+
+**Full Changelog**: https://github.com/FmTod/mylisterhub-media-package/compare/v10.3.5...v11.0.0
+
 ## v10.0.3 - 2023-12-21
 
 ### What's Changed
