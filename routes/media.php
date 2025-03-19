@@ -7,9 +7,9 @@ use MyListerHub\Media\Http\Controllers\VideoController;
 $options = config('media.route_options');
 
 Route::group($options, function () {
-    Route::post('images/upload', [ImageController::class, 'upload'])->name('images.upload');
+    Route::post('videos/upload', [VideoController::class, 'upload'])->name('videos.upload');
     Route::apiResource('videos', VideoController::class);
 
-    Route::post('videos/upload', [VideoController::class, 'upload'])->name('videos.upload');
+    Route::post('images/upload', [ImageController::class, 'upload'])->name('images.upload');
     Route::apiResource('images', ImageController::class);
 });

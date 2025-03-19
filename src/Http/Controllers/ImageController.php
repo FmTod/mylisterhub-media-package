@@ -27,28 +27,35 @@ class ImageController extends Controller
         $validated = $request->validated();
 
         $files = $request->type() === 'filepond'
-            ? Filepond::field($validated['files'])->getModel()
+            ? $request->input('files')
             : $request->file('files');
 
         $path = config('media.storage.images.path');
         $disk = config('media.storage.images.disk');
 
-        $images = collect($files)->map(function (UploadedFile|FilepondModel $file) use ($path, $disk) {
-            if ($file instanceof FilepondModel) {
-                $content = Storage::disk(Filepond::getTempDisk())->get($file->filepath);
-                $name = sprintf('%s_%s', now()->getTimestamp(), $file->filename);
-                $image = \Spatie\Image\Image::load($content);
+        $images = collect($files)->map(function (UploadedFile|string $file) use ($path, $disk) {
+            if (is_string($file)) {
+                $filepond = Filepond::field($file);
+                /** @var FilepondModel $model */
+                $model = $filepond->getModel();
 
-                Storage::disk($disk)->put("{$path}/{$name}", $content);
+                $content = Storage::disk($model->disk)->get($model->filepath);
+                $name = sprintf('%s_%s', now()->getTimestamp(), $model->filename);
 
-                Storage::disk(Filepond::getTempDisk())->delete($file->filepath);
-                $file->delete();
+                $tempPath = tempnam(sys_get_temp_dir(), 'media_');
+                file_put_contents($tempPath, $content);
+
+                if ($model->disk === Filepond::getTempDisk()) {
+                    $filepond->copyTo("{$path}/{$name}", $disk);
+                }
             } else {
                 $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
-                $image = \Spatie\Image\Image::load($file->getRealPath());
+                $tempPath = $file->getRealPath();
 
                 $file->storeAs($path, $name, $disk);
             }
+
+            $image = \Spatie\Image\Image::load($tempPath);
 
             return Image::create([
                 'name' => $name,
