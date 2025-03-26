@@ -20,7 +20,7 @@ class ImageMapper
         return collect($images)
             ->sortBy('order')
             ->pluck('url')
-            ->map(fn (string $url) => str_replace(' ', '%20', $url).($bustCache ? '?'.now()->getTimestamp() : ''))
+            ->map(fn (string $url) => str_replace(' ', '%20', $url) . ($bustCache ? '?' . now()->getTimestamp() : ''))
             ->toArray();
     }
 }
