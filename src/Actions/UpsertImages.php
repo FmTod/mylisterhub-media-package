@@ -33,7 +33,9 @@ class UpsertImages
                 throw new InvalidArgumentException('Image source/url is too long.');
             }
 
-            $image = Image::updateOrCreate(
+            $imageClass = config('media.models.image', Image::class);
+
+            $image = $imageClass::updateOrCreate(
                 attributes: ['source' => $imageData['source']],
                 values: $imageData,
             );

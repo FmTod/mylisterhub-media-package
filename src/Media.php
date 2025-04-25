@@ -32,7 +32,9 @@ class Media
 
         Storage::disk($disk)->putFileAs($path, $file, $name);
 
-        return Image::create([
+        $imageClass = config('media.models.image', Image::class);
+
+        return $imageClass::create([
             'source' => $name,
             'name' => $name,
             'width' => $image->getWidth(),
@@ -62,6 +64,8 @@ class Media
             throw_if(! $name, InvalidArgumentException::class, 'Could not guess the name of the image. Please provide a filename.');
         }
 
+        $imageClass = config('media.models.image', Image::class);
+
         try {
             $file = file_get_contents($url);
 
@@ -71,7 +75,7 @@ class Media
 
             $image = SpatieImage::load($file);
 
-            return Image::create([
+            return $imageClass::create([
                 'name' => $name,
                 'source' => $upload ? $name : $url,
                 'width' => $image->getWidth(),
@@ -80,7 +84,7 @@ class Media
         } catch (Exception $exception) {
             throw_if($upload, $exception);
 
-            return Image::create([
+            return $imageClass::create([
                 'name' => $name,
                 'source' => $url,
                 'width' => null,

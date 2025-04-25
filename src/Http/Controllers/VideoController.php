@@ -16,11 +16,14 @@ use RahulHaque\Filepond\Models\Filepond as FilepondModel;
 
 class VideoController extends Controller
 {
-    protected string $model = Video::class;
-
     protected string $request = VideoRequest::class;
 
     protected ?string $resource = VideoResource::class;
+
+    protected function getModel(): string
+    {
+        return config('media.models.video', Video::class);
+    }
 
     public function upload(VideoUploadRequest $request): JsonResource|ResourceCollection
     {

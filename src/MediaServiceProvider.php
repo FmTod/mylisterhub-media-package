@@ -26,6 +26,8 @@ class MediaServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        Image::observe(ImageObserver::class);
+        $imageClass = config('media.models.image', Image::class);
+
+        $imageClass::observe(ImageObserver::class);
     }
 }

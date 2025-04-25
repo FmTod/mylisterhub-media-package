@@ -12,6 +12,16 @@ use MyListerHub\Media\Models\Image;
 trait HasImages
 {
     /**
+     * Get the related model for images.
+     *
+     * @return class-string<\MyListerHub\Media\Models\Image>
+     */
+    protected function getImageRelatedModel(): string
+    {
+        return config('media.models.image', Image::class);
+    }
+
+    /**
      * Validation rules for models with custom attributes.
      *
      * @return string[]
@@ -30,7 +40,7 @@ trait HasImages
      */
     public function images(): MorphToMany
     {
-        return $this->morphToMany(Image::class, 'imageable')->withPivot(['order'])->orderByRaw('-`imageables`.`order` DESC');
+        return $this->morphToMany($this->getImageRelatedModel(), 'imageable')->withPivot(['order'])->orderByRaw('-`imageables`.`order` DESC');
     }
 
     /**
@@ -38,7 +48,7 @@ trait HasImages
      */
     public function thumbnail(): MorphOne
     {
-        return $this->morphOne(Image::class, 'imageable')->oldestOfMany();
+        return $this->morphOne($this->getImageRelatedModel(), 'imageable')->oldestOfMany();
     }
 
     /**
@@ -50,29 +60,31 @@ trait HasImages
             $images = collect($images);
         }
 
+        $imageClass = $this->getImageRelatedModel();
+
         $uploadedImages = $images
-            ->mapWithKeys(function (mixed $imageData, int $index) use ($copyImageFromUrl) {
+            ->mapWithKeys(function (mixed $imageData, int $index) use ($imageClass, $copyImageFromUrl) {
                 if ($imageData instanceof Image) {
                     return [$imageData->id => ['order' => $imageData->pivot?->order ?? $index]];
                 }
 
                 if ($imageData instanceof UploadedFile) {
-                    $image = Image::createFromFile($imageData);
+                    $image = $imageClass::createFromFile($imageData);
 
                     return [$image->id => ['order' => $index]];
                 }
 
                 if (is_string($imageData)) {
-                    $image = Image::createFromUrl($imageData, $copyImageFromUrl);
+                    $image = $imageClass::createFromUrl($imageData, $copyImageFromUrl);
 
                     return [$image->id => ['order' => $index]];
                 }
 
                 if (is_array($imageData)) {
                     $image = match (true) {
-                        isset($imageData['id']) => Image::find($imageData['id']),
-                        isset($imageData['source']) => Image::updateOrCreate(['source' => $imageData['source']], $imageData),
-                        isset($imageData['url']) => Image::createFromUrl($imageData['url'], $copyImageFromUrl),
+                        isset($imageData['id']) => $imageClass::find($imageData['id']),
+                        isset($imageData['source']) => $imageClass::updateOrCreate(['source' => $imageData['source']], $imageData),
+                        isset($imageData['url']) => $imageClass::createFromUrl($imageData['url'], $copyImageFromUrl),
                         default => null,
                     };
 

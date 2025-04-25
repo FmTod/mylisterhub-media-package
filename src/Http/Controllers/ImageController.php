@@ -16,16 +16,17 @@ use RahulHaque\Filepond\Models\Filepond as FilepondModel;
 
 class ImageController extends Controller
 {
-    protected string $model = Image::class;
-
     protected string $request = ImageRequest::class;
 
     protected ?string $resource = ImageResource::class;
 
+    protected function getModel(): string
+    {
+        return config('media.models.image', Image::class);
+    }
+
     public function upload(ImageUploadRequest $request): JsonResource|ResourceCollection
     {
-        $validated = $request->validated();
-
         $files = $request->type() === 'filepond'
             ? $request->input('files')
             : $request->file('files');

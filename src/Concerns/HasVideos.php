@@ -10,6 +10,16 @@ use MyListerHub\Media\Models\Video;
 trait HasVideos
 {
     /**
+     * Get the related model for videos.
+     *
+     * @return class-string<\MyListerHub\Media\Models\Video>
+     */
+    public function getVideoRelatedModel(): string
+    {
+        return config('media.models.video', Video::class);
+    }
+
+    /**
      * Validation rules for models with custom attributes.
      *
      * @return string[]
@@ -28,7 +38,7 @@ trait HasVideos
      */
     public function videos(): MorphToMany
     {
-        return $this->morphToMany(Video::class, 'videoable')->withPivot(['order'])->orderByRaw('-`videoable`.`order` DESC');
+        return $this->morphToMany($this->getVideoRelatedModel(), 'videoable')->withPivot(['order'])->orderByRaw('-`videoable`.`order` DESC');
     }
 
     /**
@@ -40,28 +50,30 @@ trait HasVideos
             $videos = collect($videos);
         }
 
+        $videoClass = $this->getVideoRelatedModel();
+
         $uploadedVideos = $videos
-            ->mapWithKeys(function (mixed $videoData, int $index) {
+            ->mapWithKeys(function (mixed $videoData, int $index) use ($videoClass) {
                 if ($videoData instanceof Video) {
                     return [$videoData->id => ['order' => $videoData->pivot?->order ?? $index]];
                 }
 
                 if ($videoData instanceof UploadedFile) {
-                    $video = Video::createFromFile($videoData);
+                    $video = $videoClass::createFromFile($videoData);
 
                     return [$video->id => ['order' => $index]];
                 }
 
                 if (is_string($videoData)) {
-                    $video = Video::createFromUrl($videoData);
+                    $video = $videoClass::createFromUrl($videoData);
 
                     return [$video->id => ['order' => $index]];
                 }
 
                 if (is_array($videoData)) {
                     $video = match (true) {
-                        isset($videoData['id']) => Video::find($videoData['id']),
-                        isset($videoData['url']) => Video::createFromUrl($videoData['url']),
+                        isset($videoData['id']) => $videoClass::find($videoData['id']),
+                        isset($videoData['url']) => $videoClass::createFromUrl($videoData['url']),
                         default => null,
                     };
 
