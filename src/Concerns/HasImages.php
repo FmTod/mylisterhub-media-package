@@ -12,16 +12,6 @@ use MyListerHub\Media\Models\Image;
 trait HasImages
 {
     /**
-     * Get the related model for images.
-     *
-     * @return class-string<\MyListerHub\Media\Models\Image>
-     */
-    protected function getImageRelatedModel(): string
-    {
-        return config('media.models.image', Image::class);
-    }
-
-    /**
      * Validation rules for models with custom attributes.
      *
      * @return string[]
@@ -120,5 +110,15 @@ trait HasImages
         $this->images()->sync($imageIds, $detaching);
 
         return $this;
+    }
+
+    /**
+     * Get the related model for images.
+     *
+     * @return class-string<\MyListerHub\Media\Models\Image>
+     */
+    protected function getImageRelatedModel(): string
+    {
+        return config('media.models.image', Image::class);
     }
 }

@@ -59,6 +59,14 @@ class Image extends Model
     }
 
     /**
+     * Build the URL for the image.
+     */
+    public function buildUrl(bool $bustCache = false): string
+    {
+        return $this->url . ($bustCache ? (parse_url($this->url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
+    }
+
+    /**
      * Get the name of the image.
      */
     protected function name(): Attribute
@@ -92,13 +100,5 @@ class Image extends Model
                 ? Media::getImageSize($attributes['source'])
                 : 0,
         );
-    }
-
-    /**
-     * Build the URL for the image.
-     */
-    public function buildUrl(bool $bustCache = false): string
-    {
-        return $this->url . ($bustCache ? (parse_url($this->url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
     }
 }

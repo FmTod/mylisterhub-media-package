@@ -20,11 +20,6 @@ class ImageController extends Controller
 
     protected ?string $resource = ImageResource::class;
 
-    protected function getModel(): string
-    {
-        return config('media.models.image', Image::class);
-    }
-
     public function upload(ImageUploadRequest $request): JsonResource|ResourceCollection
     {
         $files = $request->type() === 'filepond'
@@ -67,5 +62,10 @@ class ImageController extends Controller
         });
 
         return $this->response($images);
+    }
+
+    protected function getModel(): string
+    {
+        return config('media.models.image', Image::class);
     }
 }

@@ -10,16 +10,6 @@ use MyListerHub\Media\Models\Video;
 trait HasVideos
 {
     /**
-     * Get the related model for videos.
-     *
-     * @return class-string<\MyListerHub\Media\Models\Video>
-     */
-    public function getVideoRelatedModel(): string
-    {
-        return config('media.models.video', Video::class);
-    }
-
-    /**
      * Validation rules for models with custom attributes.
      *
      * @return string[]
@@ -31,6 +21,16 @@ trait HasVideos
             'videos.*' => 'sometimes|nullable',
             'videos.*.id' => 'sometimes|nullable|integer|exists:videos,id',
         ];
+    }
+
+    /**
+     * Get the related model for videos.
+     *
+     * @return class-string<\MyListerHub\Media\Models\Video>
+     */
+    public function getVideoRelatedModel(): string
+    {
+        return config('media.models.video', Video::class);
     }
 
     /**

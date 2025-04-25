@@ -20,11 +20,6 @@ class VideoController extends Controller
 
     protected ?string $resource = VideoResource::class;
 
-    protected function getModel(): string
-    {
-        return config('media.models.video', Video::class);
-    }
-
     public function upload(VideoUploadRequest $request): JsonResource|ResourceCollection
     {
         $validated = $request->validated();
@@ -60,5 +55,10 @@ class VideoController extends Controller
         });
 
         return $this->response($videos);
+    }
+
+    protected function getModel(): string
+    {
+        return config('media.models.video', Video::class);
     }
 }
