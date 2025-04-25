@@ -78,7 +78,7 @@ class Image extends Model
         return Attribute::get(
             fn ($value, $attributes): string => isset($attributes['source'])
                 ? Media::getImageUrl($attributes['source'])
-                : ''
+                : '',
         );
     }
 
@@ -90,7 +90,15 @@ class Image extends Model
         return Attribute::get(
             fn ($value, $attributes): int => isset($attributes['source'])
                 ? Media::getImageSize($attributes['source'])
-                : 0
+                : 0,
         );
+    }
+
+    /**
+     * Build the URL for the image.
+     */
+    public function buildUrl(bool $bustCache = false): string
+    {
+        return $this->url . ($bustCache ? (parse_url($this->url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
     }
 }

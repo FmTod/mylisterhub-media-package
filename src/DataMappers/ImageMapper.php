@@ -4,6 +4,7 @@ namespace MyListerHub\Media\DataMappers;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use MyListerHub\Media\Models\Image;
 
 class ImageMapper
 {
@@ -15,12 +16,11 @@ class ImageMapper
         ], Arr::fromArrayable($images));
     }
 
-    public static function toUrls(Collection|array $images, bool $bustCache = false): array
+    public static function toUrls(Collection|array $images, bool $bustCache = false, ...$extraArgs): array
     {
         return collect($images)
             ->sortBy('order')
-            ->pluck('url')
-            ->map(fn (string $url) => str_replace(' ', '%20', $url) . ($bustCache ? '?' . now()->getTimestamp() : ''))
+            ->map(fn (Image $image) => $image->buildUrl($bustCache, ...$extraArgs))
             ->toArray();
     }
 }
