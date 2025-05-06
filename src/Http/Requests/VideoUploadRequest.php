@@ -4,7 +4,6 @@ namespace MyListerHub\Media\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\File;
 use MyListerHub\Media\Rules\FilepondMax;
 use MyListerHub\Media\Rules\FilepondMimes;
 use MyListerHub\Media\Rules\FilepondValid;
@@ -38,12 +37,12 @@ class VideoUploadRequest extends FormRequest
                 ? [
                     'required',
                     new FilepondValid,
-                    new FilepondMimes('mp4'),
+                    new FilepondMimes(...config('media.storage.videos.allowed_mimes')),
                     ...$maxSize ? [new FilepondMax($maxSize)] : [],
                 ]
                 : [
                     'required',
-                    File::types('video/*'),
+                    sprintf("mimes:%s", implode(',', config('media.storage.videos.allowed_mimes'))),
                     ...$maxSize ? ["max:{$maxSize}"] : [],
                 ],
         ];

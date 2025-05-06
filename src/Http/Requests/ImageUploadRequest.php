@@ -38,12 +38,12 @@ class ImageUploadRequest extends FormRequest
                 ? [
                     'required',
                     new FilepondValid,
-                    new FilepondMimes('jpg', 'jpeg', 'png'),
+                    new FilepondMimes(...config('media.storage.images.allowed_mimes')),
                     ...$maxSize ? [new FilepondMax($maxSize)] : [],
                 ]
                 : [
                     'required',
-                    File::image(),
+                    sprintf("mimes:%s", implode(',', config('media.storage.images.allowed_mimes'))),
                     ...$maxSize ? ["max:{$maxSize}"] : [],
                 ],
         ];

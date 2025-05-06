@@ -42,12 +42,25 @@ return [
             'disk' => 'public',
             'path' => 'media/images',
             'max_size' => 2048,
+            'allowed_mimes' => [
+                'jpg',
+                'jpeg',
+                'png',
+                'webp',
+            ],
         ],
 
         'videos' => [
             'disk' => 'public',
             'path' => 'media/videos',
             'max_size' => 10240,
+            'allowed_mimes' => [
+                'mp4',
+                'avi',
+                'mov',
+                'mkv',
+                'webm',
+            ],
         ],
     ],
 ];
