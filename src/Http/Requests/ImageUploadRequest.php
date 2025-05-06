@@ -4,7 +4,6 @@ namespace MyListerHub\Media\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\File;
 use MyListerHub\Media\Rules\FilepondMax;
 use MyListerHub\Media\Rules\FilepondMimes;
 use MyListerHub\Media\Rules\FilepondValid;
@@ -43,7 +42,7 @@ class ImageUploadRequest extends FormRequest
                 ]
                 : [
                     'required',
-                    sprintf("mimes:%s", implode(',', config('media.storage.images.allowed_mimes'))),
+                    sprintf('mimes:%s', implode(',', config('media.storage.images.allowed_mimes'))),
                     ...$maxSize ? ["max:{$maxSize}"] : [],
                 ],
         ];

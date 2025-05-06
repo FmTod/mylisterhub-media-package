@@ -42,7 +42,7 @@ class VideoUploadRequest extends FormRequest
                 ]
                 : [
                     'required',
-                    sprintf("mimes:%s", implode(',', config('media.storage.videos.allowed_mimes'))),
+                    sprintf('mimes:%s', implode(',', config('media.storage.videos.allowed_mimes'))),
                     ...$maxSize ? ["max:{$maxSize}"] : [],
                 ],
         ];
