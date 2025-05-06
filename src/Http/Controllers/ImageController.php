@@ -42,7 +42,7 @@ class ImageController extends Controller
                 file_put_contents($tempPath, $content);
 
                 if ($model->disk === Filepond::getTempDisk()) {
-                    $filepond->copyTo("{$path}/{$name}", $disk);
+                    $filepond->copyTo("{$path}/{$name}", $disk, 'public');
                 }
             } else {
                 $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
