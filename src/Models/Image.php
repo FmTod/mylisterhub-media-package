@@ -82,11 +82,11 @@ class Image extends Model
             /** @noinspection CallableParameterUseCaseInTypeContextInspection */
             $filename = throw_unless(
                 condition: $this->name ?? (string) Str::of($this->source)
-                ->afterLast('/')
-                ->before('?')
-                ->trim()
-                ->prepend('_')
-                ->prepend(now()->getTimestamp()),
+                    ->afterLast('/')
+                    ->before('?')
+                    ->trim()
+                    ->prepend('_')
+                    ->prepend(now()->getTimestamp()),
                 exception: new InvalidArgumentException('Could not guess the name of the image. Please provide a filename.')
             );
         }
