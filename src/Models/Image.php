@@ -118,12 +118,12 @@ class Image extends Model
         $image->save("{$tempPath}.{$extension}");
 
         // Store the image in the specified disk and path
-        Storage::disk($disk)->writeStream("{$path}/{$name}", fopen("{$tempPath}.{$extension}", 'rb'));
+        Storage::disk($disk)->writeStream("{$path}/{$name}.{$extension}", fopen("{$tempPath}.{$extension}", 'rb'));
 
         // Update the model with the new source and dimensions
         return $this->update([
-            'name' => $name,
-            'source' => $name,
+            'name' => "{$name}.{$extension}",
+            'source' => "{$name}.{$extension}",
             'width' => $image->getWidth(),
             'height' => $image->getHeight(),
         ]);
