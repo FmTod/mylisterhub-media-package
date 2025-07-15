@@ -2,11 +2,13 @@
 
 namespace MyListerHub\Media\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -171,5 +173,35 @@ class Image extends Model
                 ? Media::getImageSize($attributes['source'])
                 : 0,
         );
+    }
+
+    /**
+     * Scope a query to only include images that are not used by any model, optionally excluding a type or type and id.
+     */
+    public function scopeWhereNotUsed(Builder $query, Model|string|null $except = null): Builder
+    {
+        return $query->whereNotExists(function ($query) use ($except) {
+            $query
+                ->select(DB::raw(1))
+                ->from('imageables')
+                ->whereColumn('imageables.imageable_id', 'images.id')
+                ->when($except, function (Builder $conditionalQuery) use ($except) {
+                    $conditionalQuery->where(function (Builder $subQuery) use ($except) {
+                        $model = is_string($except) ? $except::newModelInstance() : $except;
+                        $morphType = $model->getMorphClass();
+
+                        $subQuery
+                            ->where('imageable_type', '!=', $morphType)
+                            ->when(
+                                value: $except instanceof Model,
+                                callback: fn (Builder $q) => $q->orWhere(function (Builder $innerQuery) use ($except, $morphType) {
+                                    $innerQuery
+                                        ->where('imageable_type', $morphType)
+                                        ->where('imageable_id', '!=', $except->getKey());
+                                }),
+                            );
+                    });
+                });
+        });
     }
 }
