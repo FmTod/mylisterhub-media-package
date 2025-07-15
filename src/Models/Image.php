@@ -140,6 +140,36 @@ class Image extends Model
     }
 
     /**
+     * Scope a query to only include images that are not used by any model, optionally excluding a type or type and id.
+     */
+    public function scopeWhereNotUsed(Builder $query, Model|string|null $except = null): Builder
+    {
+        return $query->whereNotExists(function ($query) use ($except) {
+            $query
+                ->select(DB::raw(1))
+                ->from('imageables')
+                ->whereColumn('imageables.imageable_id', 'images.id')
+                ->when($except, function (Builder $conditionalQuery) use ($except) {
+                    $conditionalQuery->where(function (Builder $subQuery) use ($except) {
+                        $model = is_string($except) ? $except::newModelInstance() : $except;
+                        $morphType = $model->getMorphClass();
+
+                        $subQuery
+                            ->where('imageable_type', '!=', $morphType)
+                            ->when(
+                                value: $except instanceof Model,
+                                callback: fn (Builder $q) => $q->orWhere(function (Builder $innerQuery) use ($except, $morphType) {
+                                    $innerQuery
+                                        ->where('imageable_type', $morphType)
+                                        ->where('imageable_id', '!=', $except->getKey());
+                                }),
+                            );
+                    });
+                });
+        });
+    }
+
+    /**
      * Get the name of the image.
      */
     protected function name(): Attribute
@@ -173,35 +203,5 @@ class Image extends Model
                 ? Media::getImageSize($attributes['source'])
                 : 0,
         );
-    }
-
-    /**
-     * Scope a query to only include images that are not used by any model, optionally excluding a type or type and id.
-     */
-    public function scopeWhereNotUsed(Builder $query, Model|string|null $except = null): Builder
-    {
-        return $query->whereNotExists(function ($query) use ($except) {
-            $query
-                ->select(DB::raw(1))
-                ->from('imageables')
-                ->whereColumn('imageables.imageable_id', 'images.id')
-                ->when($except, function (Builder $conditionalQuery) use ($except) {
-                    $conditionalQuery->where(function (Builder $subQuery) use ($except) {
-                        $model = is_string($except) ? $except::newModelInstance() : $except;
-                        $morphType = $model->getMorphClass();
-
-                        $subQuery
-                            ->where('imageable_type', '!=', $morphType)
-                            ->when(
-                                value: $except instanceof Model,
-                                callback: fn (Builder $q) => $q->orWhere(function (Builder $innerQuery) use ($except, $morphType) {
-                                    $innerQuery
-                                        ->where('imageable_type', $morphType)
-                                        ->where('imageable_id', '!=', $except->getKey());
-                                }),
-                            );
-                    });
-                });
-        });
     }
 }
