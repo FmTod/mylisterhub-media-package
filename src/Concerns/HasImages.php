@@ -26,7 +26,7 @@ trait HasImages
     }
 
     /**
-     * Get product images.
+     * Get related images.
      */
     public function images(): MorphToMany
     {
