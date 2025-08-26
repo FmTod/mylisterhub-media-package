@@ -109,6 +109,19 @@ class Media
         return Storage::disk($disk)->url("{$path}/{$name}");
     }
 
+    public function getImageContent(string $source): string
+    {
+        if (Str::isMatch('/http(s)?:\/\//', $source)) {
+            return file_get_contents($source);
+        }
+
+        $path = config('media.storage.images.path', 'media/images');
+        $disk = config('media.storage.images.disk', 'public');
+        $name = rawurlencode($source);
+
+        return Storage::disk($disk)->get("{$path}/{$name}");
+    }
+
     /**
      * Get the file size of an image.
      */
