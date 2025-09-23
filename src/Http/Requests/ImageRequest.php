@@ -41,7 +41,7 @@ class ImageRequest extends Request
         }
 
         return [
-            'source' => ['sometimes', 'nullable', 'string']
+            'source' => ['sometimes', 'nullable', 'string'],
         ];
     }
 }
