@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use MyListerHub\API\Http\Controller;
+use MyListerHub\API\Http\Request;
 use MyListerHub\Media\Http\Requests\ImageRequest;
 use MyListerHub\Media\Http\Requests\ImageUploadRequest;
 use MyListerHub\Media\Http\Resources\ImageResource;
@@ -19,6 +20,30 @@ class ImageController extends Controller
     protected string $request = ImageRequest::class;
 
     protected ?string $resource = ImageResource::class;
+
+    public function update(Request $request, $id)
+    {
+        if ($request->isMethod('PATCH')) {
+            return parent::update($request, $id);
+        }
+
+        $model = $this->getModel();
+        $image = $model::findOrFail($id);
+
+        $file = $request->file('file');
+        $path = config('media.storage.images.path');
+        $disk = config('media.storage.images.disk');
+        $imageDetails = \Spatie\Image\Image::load($file->getRealPath());
+
+        $file->storeAs($path, $image->name, $disk);
+
+        $image->update([
+            'width' => $imageDetails->getWidth(),
+            'height' => $imageDetails->getHeight(),
+        ]);
+
+        return $this->response($image);
+    }
 
     public function upload(ImageUploadRequest $request): JsonResource|ResourceCollection
     {
@@ -52,8 +77,9 @@ class ImageController extends Controller
             }
 
             $image = \Spatie\Image\Image::load($tempPath);
+            $model = $this->getModel();
 
-            return Image::create([
+            return $model::create([
                 'name' => $name,
                 'source' => $name,
                 'width' => $image->getWidth(),
