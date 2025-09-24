@@ -6,6 +6,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use MyListerHub\API\Http\Controller;
 use MyListerHub\API\Http\Request;
 use MyListerHub\Media\Http\Requests\ImageRequest;
@@ -35,9 +36,17 @@ class ImageController extends Controller
         $disk = config('media.storage.images.disk');
         $imageDetails = \Spatie\Image\Image::load($file->getRealPath());
 
-        $file->storeAs($path, $image->name, $disk);
+        $name = Str::contains($image->source, ['http://', 'https://'])
+            ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName())
+            : $image->name;
+
+        $source = Str::contains($image->source, ['http://', 'https://']) ? $name : $image->source;
+
+        $file->storeAs($path, $name, $disk);
 
         $image->update([
+            'name' => $name,
+            'source' => $source,
             'width' => $imageDetails->getWidth(),
             'height' => $imageDetails->getHeight(),
         ]);
