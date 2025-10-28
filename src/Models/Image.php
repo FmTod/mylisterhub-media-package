@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use MyListerHub\Media\Database\Factories\ImageFactory;
 use MyListerHub\Media\Facades\Media;
+use Stringable;
 
 class Image extends Model
 {
@@ -27,6 +28,7 @@ class Image extends Model
         'source',
         'width',
         'height',
+        'dynamic',
     ];
 
     /**
@@ -67,7 +69,7 @@ class Image extends Model
      */
     public function storeFile(?string $filename = null, ?string $disk = null, bool $optimize = true): bool
     {
-        if (! Str::startsWith($this->source, 'http://') && ! Str::startsWith($this->source, 'https://')) {
+        if (!Str::isMatch('/http(s)?:\/\//', $this->source)) {
             throw new InvalidArgumentException('The source must be a valid URL starting with http(s)://');
         }
 
@@ -134,9 +136,27 @@ class Image extends Model
     /**
      * Build the URL for the image.
      */
-    public function buildUrl(bool $bustCache = false): string
+    public function buildUrl(bool $bustCache = false, array $data = []): string
     {
-        return $this->url . ($bustCache ? (parse_url($this->url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
+        // Process dynamic URLs by replacing placeholders
+        $url = $this->dynamic
+            ? preg_replace_callback('/\{([\w_]+)}/', static function ($matches) use ($data): string {
+                // Skip if the placeholder doesn't exist in data
+                if (! isset($data[$matches[1]])) {
+                    return $matches[0];
+                }
+
+                // Skip if value isn't scalar or can't be converted to string
+                if (! is_scalar($data[$matches[1]]) && ! $data[$matches[1]] instanceof Stringable) {
+                    return $matches[0];
+                }
+
+                return (string) $data[$matches[1]];
+            }, $this->url)
+            : $this->url;
+
+        // Add cache busting parameter if needed
+        return $url.($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?').'_t='.now()->getTimestamp() : '');
     }
 
     /**
@@ -175,7 +195,7 @@ class Image extends Model
     protected function name(): Attribute
     {
         return Attribute::get(
-            fn ($value, $attributes) => empty($attributes['name'])
+            static fn ($value, $attributes) => empty($attributes['name'])
                 ? Str::before(Str::afterLast($attributes['source'], '/'), '?')
                 : $attributes['name'],
         );
@@ -187,7 +207,7 @@ class Image extends Model
     protected function url(): Attribute
     {
         return Attribute::get(
-            fn ($value, $attributes): string => isset($attributes['source'])
+            static fn ($value, $attributes): string => isset($attributes['source'])
                 ? Media::getImageUrl($attributes['source'])
                 : '',
         );
@@ -199,7 +219,7 @@ class Image extends Model
     protected function size(): Attribute
     {
         return Attribute::get(
-            fn ($value, $attributes): int => isset($attributes['source'])
+            static fn ($value, $attributes): int => isset($attributes['source'])
                 ? Media::getImageSize($attributes['source'])
                 : 0,
         );

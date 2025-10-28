@@ -17,7 +17,7 @@ class Media
     /**
      * Create a new image from a file.
      */
-    public static function createImageFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null): Image
+    public function createImageFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null): Image
     {
         $path = config('media.storage.images.path', 'media/images');
         $image = SpatieImage::load($file);
@@ -45,7 +45,7 @@ class Media
     /**
      * Create a new image from an url.
      */
-    public static function createImageFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): Image
+    public function createImageFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): Image
     {
         $path = config('media.storage.images.path', 'media/images');
 
@@ -65,32 +65,22 @@ class Media
         }
 
         $imageClass = config('media.models.image', Image::class);
+        $dynamicUrl = Str::isMatch('/\{([\w_]+)}/', $url);
 
-        try {
+        if ($upload) {
             $file = file_get_contents($url);
-
-            if ($upload) {
-                Storage::disk($disk)->put("{$path}/{$name}", $file);
-            }
-
-            $image = SpatieImage::load($file);
-
-            return $imageClass::create([
-                'name' => $name,
-                'source' => $upload ? $name : $url,
-                'width' => $image->getWidth(),
-                'height' => $image->getHeight(),
-            ]);
-        } catch (Exception $exception) {
-            throw_if($upload, $exception);
-
-            return $imageClass::create([
-                'name' => $name,
-                'source' => $url,
-                'width' => null,
-                'height' => null,
-            ]);
+            Storage::disk($disk)->put("{$path}/{$name}", $file);
         }
+
+        $dimensions = $this->getImageDimensions($url);
+
+        return $imageClass::create([
+            'name' => $name,
+            'source' => $upload ? $name : $url,
+            'width' => $dimensions['width'] ?? null,
+            'height' => $dimensions['height'] ?? null,
+            'dynamic' => $dynamicUrl,
+        ]);
     }
 
     /**
@@ -155,4 +145,46 @@ class Media
 
         return Storage::disk($disk)->size($filePath);
     }
-}
+
+    /**
+     * Get image dimensions from the source without downloading the full image.
+     */
+    public function getImageDimensions(string $source): ?array
+    {
+        if (! Str::isMatch('/http(s)?:\/\//', $source)) {
+            $path = config('media.storage.images.path', 'media/images');
+            $disk = config('media.storage.images.disk', 'public');
+            $filepath = Storage::disk($disk)->path("{$path}/{$source}");
+            $image = SpatieImage::load($filepath);
+
+            return [
+                'width' => $image->getWidth(),
+                'height' => $image->getHeight(),
+            ];
+        }
+
+        try {
+            // Create a stream context that limits the amount of data read
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => "Range: bytes=0-32768\r\n", // Only read the first 32 KB
+                    'ignore_errors' => true,
+                ],
+            ]);
+
+            // getimagesize can work with URLs and only reads the necessary bytes
+            $dimensions = @getimagesize($source, $context);
+
+            if ($dimensions === false) {
+                return null;
+            }
+
+            return [
+                'width' => $dimensions[0],
+                'height' => $dimensions[1],
+            ];
+        } catch (Exception) {
+            return null;
+        }
+    }}
