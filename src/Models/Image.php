@@ -69,7 +69,7 @@ class Image extends Model
      */
     public function storeFile(?string $filename = null, ?string $disk = null, bool $optimize = true): bool
     {
-        if (!Str::isMatch('/http(s)?:\/\//', $this->source)) {
+        if (! Str::isMatch('/http(s)?:\/\//', $this->source)) {
             throw new InvalidArgumentException('The source must be a valid URL starting with http(s)://');
         }
 
@@ -156,7 +156,7 @@ class Image extends Model
             : $this->url;
 
         // Add cache busting parameter if needed
-        return $url.($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?').'_t='.now()->getTimestamp() : '');
+        return $url . ($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
     }
 
     /**

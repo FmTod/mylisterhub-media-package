@@ -187,4 +187,5 @@ class Media
         } catch (Exception) {
             return null;
         }
-    }}
+    }
+}
