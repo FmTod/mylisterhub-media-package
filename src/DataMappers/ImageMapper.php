@@ -16,11 +16,11 @@ class ImageMapper
         ], Arr::fromArrayable($images));
     }
 
-    public static function toUrls(Collection|array $images, bool $bustCache = false, ...$extraArgs): array
+    public static function toUrls(Collection|array $images, bool $bustCache = false, array $data = []): array
     {
         return collect($images)
             ->sortBy('order')
-            ->map(fn (Image $image) => $image->buildUrl($bustCache, ...$extraArgs))
+            ->map(fn (Image $image) => $image->buildUrl($bustCache, $data))
             ->toArray();
     }
 }

@@ -88,7 +88,7 @@ class Media
      */
     public function getImageUrl(string $source): string
     {
-        if (Str::isMatch('/http(s)?:\/\//', $source)) {
+        if (Str::isMatch('/^http(s)?:\/\//', $source)) {
             return $source;
         }
 
@@ -101,7 +101,7 @@ class Media
 
     public function getImageContent(string $source): string
     {
-        if (Str::isMatch('/http(s)?:\/\//', $source)) {
+        if (Str::isMatch('/^http(s)?:\/\//', $source)) {
             return file_get_contents($source);
         }
 
@@ -117,7 +117,7 @@ class Media
      */
     public function getImageSize(string $source): int
     {
-        if (Str::isMatch('/http(s)?:\/\//', $source)) {
+        if (Str::isMatch('/^http(s)?:\/\//', $source)) {
             $headers = get_headers($source, 1);
 
             if (isset($headers['Content-Length'])) {
@@ -151,7 +151,7 @@ class Media
      */
     public function getImageDimensions(string $source): ?array
     {
-        if (! Str::isMatch('/http(s)?:\/\//', $source)) {
+        if (! Str::isMatch('/^http(s)?:\/\//', $source)) {
             $path = config('media.storage.images.path', 'media/images');
             $disk = config('media.storage.images.disk', 'public');
             $filepath = Storage::disk($disk)->path("{$path}/{$source}");
