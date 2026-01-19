@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use MyListerHub\API\Http\Controller;
 use MyListerHub\API\Http\Request;
+use MyListerHub\Media\Facades\Media;
 use MyListerHub\Media\Http\Requests\ImageRequest;
 use MyListerHub\Media\Http\Requests\ImageUploadRequest;
 use MyListerHub\Media\Http\Resources\ImageResource;
@@ -32,23 +33,19 @@ class ImageController extends Controller
         $image = $model::findOrFail($id);
 
         $file = $request->file('file');
-        $path = config('media.storage.images.path');
-        $disk = config('media.storage.images.disk');
-        $imageDetails = \Spatie\Image\Image::load($file->getRealPath());
+        $isUrl = Str::matches('/^https?:\/\//', $image->source);
+        $name = $isUrl ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName()) : $image->name;
 
-        $name = Str::contains($image->source, ['http://', 'https://'])
-            ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName())
-            : $image->name;
-
-        $source = Str::contains($image->source, ['http://', 'https://']) ? $name : $image->source;
-
-        $file->storeAs($path, $name, $disk);
+        $result = Media::processAndStoreImage(
+            sourcePath: $file->getRealPath(),
+            destinationName: $name,
+        );
 
         $image->update([
-            'name' => $name,
-            'source' => $source,
-            'width' => $imageDetails->getWidth(),
-            'height' => $imageDetails->getHeight(),
+            'name' => $result->name,
+            'source' => $isUrl ? $result->name : $image->source,
+            'width' => $result->width,
+            'height' => $result->height,
         ]);
 
         return $this->response($image);
@@ -60,39 +57,41 @@ class ImageController extends Controller
             ? $request->input('files')
             : $request->file('files');
 
-        $path = config('media.storage.images.path');
-        $disk = config('media.storage.images.disk');
-
-        $images = collect($files)->map(function (UploadedFile|string $file) use ($path, $disk) {
+        $images = collect($files)->map(function (UploadedFile|string $file) {
             if (is_string($file)) {
+                // Handle Filepond upload
                 $filepond = Filepond::field($file);
                 /** @var FilepondModel $model */
                 $model = $filepond->getModel();
 
-                $content = Storage::disk($model->disk)->get($model->filepath);
                 $name = sprintf('%s_%s', now()->getTimestamp(), $model->filename);
-
                 $tempPath = tempnam(sys_get_temp_dir(), 'media_');
-                file_put_contents($tempPath, $content);
 
-                if ($model->disk === Filepond::getTempDisk()) {
-                    $filepond->copyTo("{$path}/{$name}", $disk, 'public');
+                // Use stream to copy a file instead of loading into memory
+                $sourceStream = Storage::disk($model->disk)->readStream($model->filepath);
+                $destStream = fopen($tempPath, 'wb');
+
+                if ($sourceStream && $destStream) {
+                    stream_copy_to_stream($sourceStream, $destStream);
+                    fclose($sourceStream);
+                    fclose($destStream);
                 }
             } else {
+                // Handle regular file upload
                 $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
                 $tempPath = $file->getRealPath();
-
-                $file->storeAs($path, $name, $disk);
             }
 
-            $image = \Spatie\Image\Image::load($tempPath);
+            @unlink($tempPath);
+
+            $result = Media::processAndStoreImage($tempPath, $name);
             $model = $this->getModel();
 
             return $model::create([
-                'name' => $name,
-                'source' => $name,
-                'width' => $image->getWidth(),
-                'height' => $image->getHeight(),
+                'name' => $result->name,
+                'source' => $result->name,
+                'width' => $result->width,
+                'height' => $result->height,
             ]);
         });
 

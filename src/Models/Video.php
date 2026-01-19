@@ -7,16 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use MyListerHub\Media\Database\Factories\VideoFactory;
+use MyListerHub\Media\Facades\Media;
 
 class Video extends Model
 {
     use HasFactory;
 
     /**
-     * The attributes that are mass assignable.
+     * The attributes that are mass-assignable.
      */
     protected $fillable = [
         'name',
@@ -59,17 +59,12 @@ class Video extends Model
     }
 
     /**
-     * Create a new video from an url.
+     * Create a new video from a url.
      */
     public static function createFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): static
     {
         if (is_null($name) || $name === '') {
-            $name = (string) Str::of($url)
-                ->afterLast('/')
-                ->before('?')
-                ->trim()
-                ->prepend('_')
-                ->prepend(now()->getTimestamp());
+            $name = Media::getFilenameFromUrl($url);
 
             throw_if(! $name, InvalidArgumentException::class, 'Could not guess the name of the image. Please provide a filename.');
         }
@@ -87,8 +82,13 @@ class Video extends Model
             $disk = (string) config('media.storage.images.disk', 'public');
         }
 
-        $file = file_get_contents($url);
-        Storage::disk($disk)->put("{$path}/{$name}", $file);
+        // Use stream to download and upload the video
+        $stream = fopen($url, 'rb');
+        Storage::disk($disk)->put("{$path}/{$name}", $stream);
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
 
         return static::create([
             'name' => $name,
