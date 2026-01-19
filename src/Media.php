@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use League\Flysystem\UnableToCheckFileExistence;
-use MyListerHub\Media\DataObjects\ProcessedImageResult;
+use MyListerHub\Media\DataObjects\ProcessedImage;
 use MyListerHub\Media\Models\Image;
 use Spatie\Image\Enums\Fit;
 use Spatie\Image\Image as SpatieImage;
@@ -17,28 +17,27 @@ use Spatie\Image\Image as SpatieImage;
 class Media
 {
     /**
-     * Process and store an image (resize if needed, optimize if requested, save to disk).
+     * Process an image (resize, convert to WebP, optimize) and save to destination path.
      *
      * @throws \Spatie\Image\Exceptions\CouldNotLoadImage
      */
-    public function processAndStoreImage(string $sourcePath, string $destinationName, ?string $disk = null, ?bool $optimize = null): ProcessedImageResult
+    public function processImage(string $sourcePath, string $filename, ?string $destinationPath = null): ProcessedImage
     {
-        $path = config('media.storage.images.path', 'media/images');
+        $optimize = config('media.storage.images.optimize', true);
         $maxDimension = config('media.storage.images.max_dimension', 2000);
 
-        if (is_null($optimize)) {
-            $optimize = config('media.storage.images.optimize', true);
-        }
-
-        if (is_null($disk)) {
-            $disk = (string) config('media.storage.images.disk', 'public');
+        if ($destinationPath === null) {
+            $destinationPath = $sourcePath;
         }
 
         // Load the image
         $image = SpatieImage::load($sourcePath);
 
-        // Convert to WebP and optimize if requested
-        $filename = $destinationName;
+        // Get original dimensions
+        $originalWidth = $image->getWidth();
+        $originalHeight = $image->getHeight();
+
+        $processedFilename = $filename;
 
         if ($optimize) {
             // Resize if image exceeds max dimension
@@ -47,39 +46,73 @@ class Media
             }
 
             // Change extension to .webp
-            $nameWithoutExtension = pathinfo($destinationName, PATHINFO_FILENAME);
-            $filename = "{$nameWithoutExtension}.webp";
+            $fileExtension = pathinfo($filename, PATHINFO_EXTENSION);
+            $nameWithoutExtension = pathinfo($filename, PATHINFO_FILENAME);
+            $processedFilename = "{$nameWithoutExtension}.webp";
 
+            // If the destination path has the extension, replace it with .webp
+            if (Str::endsWith($destinationPath, $fileExtension)) {
+                $destinationPath = (string) Str::of($destinationPath)->beforeLast($fileExtension)->append('.webp');
+            }
+
+            // Format the image as WebP
             $image->format('webp');
             $image->optimize();
         }
 
-        // Save the processed image
-        $tempPath = tempnam(sys_get_temp_dir(), 'media_process_');
-        $image->save($tempPath);
+        // Save the processed image to the destination path
+        $image->save($destinationPath);
+
+        return new ProcessedImage(
+            path: $destinationPath,
+            filename: $processedFilename,
+            width: $image->getWidth(),
+            height: $image->getHeight(),
+            originalWidth: $originalWidth,
+            originalHeight: $originalHeight,
+        );
+    }
+
+    /**
+     * Process and store an image (resize if needed, optimize if requested, save to disk).
+     *
+     * @throws \Spatie\Image\Exceptions\CouldNotLoadImage
+     */
+    public function processAndStoreImage(string $sourcePath, string $destinationName, ?string $disk = null): ProcessedImage
+    {
+        $path = config('media.storage.images.path', 'media/images');
+
+        if (is_null($disk)) {
+            $disk = (string) config('media.storage.images.disk', 'public');
+        }
+
+        // Load and process the image
+        $result = $this->processImage($sourcePath, $destinationName);
 
         // Use stream to avoid loading an entire file into memory
-        $stream = fopen($tempPath, 'rb');
-        Storage::disk($disk)->put("{$path}/{$filename}", $stream);
+        $stream = fopen($result->path, 'rb');
+        Storage::disk($disk)->put("{$path}/{$result->filename}", $stream);
 
         if (is_resource($stream)) {
             fclose($stream);
         }
 
-        @unlink($tempPath);
+        @unlink($result->path);
 
-        return new ProcessedImageResult(
-            width: $image->getWidth(),
-            height: $image->getHeight(),
-            path: "{$path}/{$filename}",
-            name: $filename,
+        return new ProcessedImage(
+            path: "{$path}/{$result->filename}",
+            filename: $result->filename,
+            width: $result->width,
+            height: $result->height,
+            originalWidth: $result->originalWidth,
+            originalHeight: $result->originalHeight,
         );
     }
 
     /**
      * Create a new image from a file.
      */
-    public function createImageFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null, bool $optimize = false): Image
+    public function createImageFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null): Image
     {
         $filePath = $file instanceof UploadedFile ? $file->getRealPath() : $file->getPathname();
 
@@ -87,13 +120,13 @@ class Media
             $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
         }
 
-        $result = $this->processAndStoreImage($filePath, $name, $disk, $optimize);
+        $result = $this->processAndStoreImage($filePath, $name, $disk);
 
         $imageClass = config('media.models.image', Image::class);
 
         return $imageClass::create([
-            'source' => $result->name,
-            'name' => $result->name,
+            'source' => $result->filename,
+            'name' => $result->filename,
             'width' => $result->width,
             'height' => $result->height,
         ]);
@@ -102,7 +135,7 @@ class Media
     /**
      * Create a new image from an url.
      */
-    public function createImageFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null, bool $optimize = false): Image
+    public function createImageFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): Image
     {
         if (is_null($name) || $name === '') {
             $name = $this->getFilenameFromUrl($url);
@@ -128,9 +161,9 @@ class Media
                 fclose($destStream);
             }
 
-            $result = $this->processAndStoreImage($tempPath, $name, $disk, $optimize);
+            $result = $this->processAndStoreImage($tempPath, $name, $disk);
             $dimensions = ['width' => $result->width, 'height' => $result->height];
-            $finalName = $result->name;
+            $finalName = $result->filename;
 
             @unlink($tempPath);
         } else {

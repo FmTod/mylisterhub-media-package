@@ -2,6 +2,7 @@
 
 namespace MyListerHub\Media;
 
+use MyListerHub\Media\Http\Middleware\OptimizeImages;
 use MyListerHub\Media\Models\Image;
 use MyListerHub\Media\Observers\ImageObserver;
 use Spatie\LaravelPackageTools\Package;
@@ -27,7 +28,10 @@ class MediaServiceProvider extends PackageServiceProvider
     public function packageBooted(): void
     {
         $imageClass = config('media.models.image', Image::class);
-
         $imageClass::observe(ImageObserver::class);
+
+        // Add middleware alias
+        $router = $this->app->make('router');
+        $router->aliasMiddleware('optimize-images', OptimizeImages::class);
     }
 }

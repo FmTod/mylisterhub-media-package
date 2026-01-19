@@ -41,7 +41,9 @@ return [
         'images' => [
             'disk' => 'public',
             'path' => 'media/images',
-            'max_size' => 2048,
+            'max_size' => env('MEDIA_IMAGE_MAX_SIZE', 10240),
+            'optimize' => env('MEDIA_IMAGE_OPTIMIZE', true),
+            'max_dimension' => env('MEDIA_IMAGE_MAX_DIMENSION', 2000),
             'allowed_mimes' => [
                 'jpg',
                 'jpeg',
@@ -53,7 +55,7 @@ return [
         'videos' => [
             'disk' => 'public',
             'path' => 'media/videos',
-            'max_size' => 10240,
+            'max_size' => env('MEDIA_VIDEO_MAX_SIZE', 51200),
             'allowed_mimes' => [
                 'mp4',
                 'avi',
