@@ -50,23 +50,23 @@ class Image extends Model
     /**
      * Create a new image from a file.
      */
-    public static function createFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null): static
+    public static function createFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null, ?bool $optimize = null): static
     {
-        return Media::createImageFromFile($file, $name, $disk);
+        return Media::createImageFromFile($file, $name, $disk, $optimize);
     }
 
     /**
      * Create a new image from an url.
      */
-    public static function createFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): static
+    public static function createFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null, ?bool $optimize = null): static
     {
-        return Media::createImageFromUrl($url, $name, $upload, $disk);
+        return Media::createImageFromUrl($url, $name, $upload, $disk, $optimize);
     }
 
     /**
      * Store the image file to the specified disk and path.
      */
-    public function storeFile(?string $filename = null, ?string $disk = null): bool
+    public function storeFile(?string $filename = null, ?string $disk = null, ?bool $optimize = null): bool
     {
         if (! Str::isMatch('/http(s)?:\/\//', $this->source)) {
             throw new InvalidArgumentException('The source must be a valid URL starting with http(s)://');
@@ -108,7 +108,7 @@ class Image extends Model
         fclose($sourceStream);
         fclose($destStream);
 
-        $result = Media::processAndStoreImage($tempPath, "{$name}.{$extension}", $disk);
+        $result = Media::processAndStoreImage($tempPath, "{$name}.{$extension}", $disk, $optimize);
 
         @unlink($tempPath);
 

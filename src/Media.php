@@ -21,9 +21,9 @@ class Media
      *
      * @throws \Spatie\Image\Exceptions\CouldNotLoadImage
      */
-    public function processImage(string $sourcePath, string $filename, ?string $destinationPath = null): ProcessedImage
+    public function processImage(string $sourcePath, string $filename, ?string $destinationPath = null, ?bool $optimize = null): ProcessedImage
     {
-        $optimize = config('media.storage.images.optimize', true);
+        $optimize = $optimize ?? config('media.storage.images.optimize', true);
         $maxDimension = config('media.storage.images.max_dimension', 2000);
 
         if ($destinationPath === null) {
@@ -78,7 +78,7 @@ class Media
      *
      * @throws \Spatie\Image\Exceptions\CouldNotLoadImage
      */
-    public function processAndStoreImage(string $sourcePath, string $destinationName, ?string $disk = null): ProcessedImage
+    public function processAndStoreImage(string $sourcePath, string $destinationName, ?string $disk = null, ?bool $optimize = null): ProcessedImage
     {
         $path = config('media.storage.images.path', 'media/images');
 
@@ -87,7 +87,7 @@ class Media
         }
 
         // Load and process the image
-        $result = $this->processImage($sourcePath, $destinationName);
+        $result = $this->processImage($sourcePath, $destinationName, optimize: $optimize);
 
         // Use stream to avoid loading an entire file into memory
         $stream = fopen($result->path, 'rb');
@@ -112,7 +112,7 @@ class Media
     /**
      * Create a new image from a file.
      */
-    public function createImageFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null): Image
+    public function createImageFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null, ?bool $optimize = null): Image
     {
         $filePath = $file instanceof UploadedFile ? $file->getRealPath() : $file->getPathname();
 
@@ -120,7 +120,7 @@ class Media
             $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
         }
 
-        $result = $this->processAndStoreImage($filePath, $name, $disk);
+        $result = $this->processAndStoreImage($filePath, $name, $disk, $optimize);
 
         $imageClass = config('media.models.image', Image::class);
 
@@ -135,7 +135,7 @@ class Media
     /**
      * Create a new image from an url.
      */
-    public function createImageFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): Image
+    public function createImageFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null, ?bool $optimize = null): Image
     {
         if (is_null($name) || $name === '') {
             $name = $this->getFilenameFromUrl($url);
@@ -161,7 +161,7 @@ class Media
                 fclose($destStream);
             }
 
-            $result = $this->processAndStoreImage($tempPath, $name, $disk);
+            $result = $this->processAndStoreImage($tempPath, $name, $disk, $optimize);
             $dimensions = ['width' => $result->width, 'height' => $result->height];
             $finalName = $result->filename;
 

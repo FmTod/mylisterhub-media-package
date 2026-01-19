@@ -37,12 +37,13 @@ class OptimizeImages
 
                 return in_array($extension, $allowedMimes, true);
             })
-            ->each(function (UploadedFile $file) use ($request) {
+            ->each(function (UploadedFile $file) use ($request, $optimize) {
                 try {
                     // Process the image in-place
                     $result = Media::processImage(
                         $file->getRealPath(),
                         $file->getClientOriginalName(),
+                        optimize: $optimize,
                     );
 
                     // Create a new UploadedFile instance with the processed file
