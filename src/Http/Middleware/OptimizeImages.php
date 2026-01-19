@@ -22,20 +22,13 @@ class OptimizeImages
             return $next($request);
         }
 
-        collect($request->allFiles())
+        collect($request->files->all())
             ->flatten()
-            ->filter(function (UploadedFile $file) {
-                if (app()->environment('testing')) {
-                    return true;
-                }
-
-                return $file->isValid();
-            })
             ->filter(function (UploadedFile $file) use ($allowedMimes) {
                 // Only process image files that match the allowed MIME types
                 $extension = mb_strtolower($file->getClientOriginalExtension());
 
-                return in_array($extension, $allowedMimes, true);
+                return $file->isValid() && in_array($extension, $allowedMimes, true);
             })
             ->each(function (UploadedFile $file) use ($request, $optimize) {
                 try {
@@ -46,22 +39,25 @@ class OptimizeImages
                         optimize: $optimize,
                     );
 
+                    // Determine the MIME type based on the processed filename
+                    $mimeType = str_ends_with($result->filename, '.webp') ? 'image/webp' : $file->getMimeType();
+
                     // Create a new UploadedFile instance with the processed file
                     $processedFile = new UploadedFile(
                         $result->path,
                         $result->filename,
-                        $file->getMimeType(),
-                        null,
-                        true // test mode to allow setting the path manually
+                        $mimeType,
+                        test: true, // test mode to allow setting the path manually
                     );
 
                     // Replace the file in the request
                     $this->replaceFileInRequest($request, $file, $processedFile);
                 } catch (Exception $e) {
-                    // Silently skip files that cannot be processed in production
                     if (app()->environment('testing')) {
                         throw $e;
                     }
+
+                    report($e);
                 }
             });
 
@@ -74,7 +70,7 @@ class OptimizeImages
     protected function replaceFileInRequest(Request $request, UploadedFile $originalFile, UploadedFile $newFile): void
     {
         // Find and replace the file in the request
-        $files = $request->allFiles();
+        $files = $request->files->all();
 
         array_walk_recursive($files, static function (&$file) use ($originalFile, $newFile) {
             if ($file === $originalFile) {

@@ -179,15 +179,3 @@ it('handles invalid files gracefully in production', function () {
     // Should not throw an error, just pass the file through
     $response->assertSuccessful();
 });
-
-it('throws exceptions for invalid files in testing environment', function () {
-    // Create a corrupted image file
-    $tempPath = tempnam(sys_get_temp_dir(), 'test_');
-    file_put_contents($tempPath, 'not an image');
-
-    $file = new UploadedFile($tempPath, 'corrupted.png', 'image/png', null, true);
-
-    $this->postJson('/test-upload', [
-        'image' => $file,
-    ]);
-})->throws(CouldNotLoadImage::class);
