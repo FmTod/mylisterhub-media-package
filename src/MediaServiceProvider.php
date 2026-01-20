@@ -5,11 +5,22 @@ namespace MyListerHub\Media;
 use MyListerHub\Media\Http\Middleware\OptimizeImages;
 use MyListerHub\Media\Models\Image;
 use MyListerHub\Media\Observers\ImageObserver;
+use MyListerHub\Media\Services\OptimizedFilepondService;
+use MyListerHub\Media\Services\StreamedFilepond;
+use RahulHaque\Filepond\Services\FilepondService;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 class MediaServiceProvider extends PackageServiceProvider
 {
+    public array $bindings = [
+        FilepondService::class => OptimizedFilepondService::class,
+    ];
+
+    public array $singletons = [
+        'filepond' => StreamedFilepond::class,
+    ];
+
     public function configurePackage(Package $package): void
     {
         /*
