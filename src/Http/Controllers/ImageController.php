@@ -16,6 +16,7 @@ use MyListerHub\Media\Http\Resources\ImageResource;
 use MyListerHub\Media\Models\Image;
 use RahulHaque\Filepond\Facades\Filepond;
 use RahulHaque\Filepond\Models\Filepond as FilepondModel;
+use Spatie\Image\Image as SpatieImage;
 
 class ImageController extends Controller
 {
@@ -36,10 +37,7 @@ class ImageController extends Controller
         $isUrl = Str::matches('/^https?:\/\//', $image->source);
         $name = $isUrl ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName()) : $image->name;
 
-        $result = Media::processAndStoreImage(
-            sourcePath: $file->getRealPath(),
-            destinationName: $name,
-        );
+        $result = Media::storeImage(source: $file->getRealPath(), name: $name);
 
         $image->update([
             'name' => $result->name,
@@ -57,45 +55,53 @@ class ImageController extends Controller
             ? $request->input('files')
             : $request->file('files');
 
-        $images = collect($files)->map(function (UploadedFile|string $file) {
-            if (is_string($file)) {
-                // Handle Filepond upload
-                $filepond = Filepond::field($file);
-                /** @var FilepondModel $model */
-                $model = $filepond->getModel();
-
-                $name = sprintf('%s_%s', now()->getTimestamp(), $model->filename);
-                $tempPath = tempnam(sys_get_temp_dir(), 'media_');
-
-                // Use stream to copy a file instead of loading into memory
-                $sourceStream = Storage::disk($model->disk)->readStream($model->filepath);
-                $destStream = fopen($tempPath, 'wb');
-
-                if ($sourceStream && $destStream) {
-                    stream_copy_to_stream($sourceStream, $destStream);
-                    fclose($sourceStream);
-                    fclose($destStream);
-                }
-            } else {
-                // Handle regular file upload
-                $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
-                $tempPath = $file->getRealPath();
-            }
-
-            @unlink($tempPath);
-
-            $result = Media::processAndStoreImage($tempPath, $name);
-            $model = $this->getModel();
-
-            return $model::create([
-                'name' => $result->name,
-                'source' => $result->name,
-                'width' => $result->width,
-                'height' => $result->height,
-            ]);
-        });
+        $images = collect($files)->map(fn (UploadedFile|string $file) => $this->processUploadedFile($file));
 
         return $this->response($images);
+    }
+
+    protected function processUploadedFile(UploadedFile|string $file): Image
+    {
+        if ($file instanceof UploadedFile) {
+            return Media::createImageFromFile($file);
+        }
+
+        $path = config('media.storage.images.path');
+        $disk = config('media.storage.images.disk');
+
+        $filepond = Filepond::field($file);
+        /** @var FilepondModel $filepondModel */
+        $filepondModel = $filepond->getModel();
+
+        $name = sprintf('%s_%s', now()->getTimestamp(), $filepondModel->filename);
+
+        try {
+            $content = Storage::disk($filepondModel->disk)->readStream($filepondModel->filepath);
+            $tempPath = tempnam(sys_get_temp_dir(), 'media_');
+            $destStream = fopen($tempPath, 'wb');
+
+            if ($content && $destStream) {
+                stream_copy_to_stream($content, $destStream);
+                fclose($content);
+                fclose($destStream);
+            }
+
+            $image = SpatieImage::load($tempPath);
+        } catch (\Exception $e) {
+            report($e);
+            $image = null;
+        }
+
+        if ($filepondModel->disk === Filepond::getTempDisk()) {
+            $filepond->copyTo("{$path}/{$name}", $disk, 'public');
+        }
+
+        return ($this->getModel())::create([
+            'name' => $name,
+            'source' => $name,
+            'width' => $image?->getWidth(),
+            'height' => $image?->getHeight(),
+        ]);
     }
 
     protected function getModel(): string
