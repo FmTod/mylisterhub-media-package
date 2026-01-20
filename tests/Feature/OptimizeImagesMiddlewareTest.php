@@ -4,7 +4,6 @@ use Illuminate\Http\Testing\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
 use MyListerHub\Media\Http\Middleware\OptimizeImages;
-use Spatie\Image\Exceptions\CouldNotLoadImage;
 
 beforeEach(function () {
     // Create a test route with the middleware

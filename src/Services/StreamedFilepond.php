@@ -46,7 +46,7 @@ class StreamedFilepond extends Filepond
             $response = [];
             $fileponds = $this->getFieldModel();
             foreach ($fileponds as $index => $filepond) {
-                $to = $path.'-'.($index + 1);
+                $to = $path . '-' . ($index + 1);
                 $response[] = $this->putFile($filepond, $to, $disk, $visibility);
             }
             $this->delete();
@@ -72,7 +72,7 @@ class StreamedFilepond extends Filepond
             $response = [];
             $fileponds = $this->getFieldModel();
             foreach ($fileponds as $index => $filepond) {
-                $to = $path.'-'.($index + 1);
+                $to = $path . '-' . ($index + 1);
                 $response[] = $this->putFile($filepond, $to, $disk, $visibility);
             }
 
@@ -91,19 +91,19 @@ class StreamedFilepond extends Filepond
         $pathInfo = pathinfo($path);
 
         Storage::disk($permanentDisk)->writeStream(
-            $pathInfo['dirname'].DIRECTORY_SEPARATOR.$pathInfo['filename'].'.'.$filepond->extension,
+            $pathInfo['dirname'] . DIRECTORY_SEPARATOR . $pathInfo['filename'] . '.' . $filepond->extension,
             Storage::disk($this->getTempDisk())->readStream($filepond->filepath),
             ['visibility' => $visibility],
         );
 
         return [
             'id' => $filepond->id,
-            'dirname' => dirname($path.'.'.$filepond->extension),
-            'basename' => basename($path.'.'.$filepond->extension),
+            'dirname' => dirname($path . '.' . $filepond->extension),
+            'basename' => basename($path . '.' . $filepond->extension),
             'extension' => $filepond->extension,
-            'filename' => basename($path.'.'.$filepond->extension, '.'.$filepond->extension),
-            'location' => $path.'.'.$filepond->extension,
-            'url' => Storage::disk($permanentDisk)->url($path.'.'.$filepond->extension),
+            'filename' => basename($path . '.' . $filepond->extension, '.' . $filepond->extension),
+            'location' => $path . '.' . $filepond->extension,
+            'url' => Storage::disk($permanentDisk)->url($path . '.' . $filepond->extension),
         ];
     }
 }

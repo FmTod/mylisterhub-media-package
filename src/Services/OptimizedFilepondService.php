@@ -2,6 +2,7 @@
 
 namespace MyListerHub\Media\Services;
 
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use MyListerHub\Media\Facades\Media;
@@ -44,7 +45,7 @@ class OptimizedFilepondService extends FilepondService
         }
 
         if (is_array($file)) {
-            return array_map(fn($f) => $this->processImageFile($f), $file);
+            return array_map(fn ($f) => $this->processImageFile($f), $file);
         }
 
         return $this->processImageFile($file);
@@ -58,14 +59,14 @@ class OptimizedFilepondService extends FilepondService
         $allowedMimes = config('media.storage.images.allowed_mimes', ['jpg', 'jpeg', 'png', 'webp']);
         $optimize = config('media.storage.images.optimize', true);
 
-        if (!$optimize || !$file->isValid()) {
+        if (! $optimize || ! $file->isValid()) {
             return $file;
         }
 
         $extension = mb_strtolower($file->getClientOriginalExtension());
 
         // Only process if it's an image file
-        if (!in_array($extension, $allowedMimes, true)) {
+        if (! in_array($extension, $allowedMimes, true)) {
             return $file;
         }
 
@@ -87,7 +88,7 @@ class OptimizedFilepondService extends FilepondService
                 $mimeType,
                 test: true, // test mode to allow setting the path manually
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             if (app()->environment('testing')) {
                 throw $e;
             }

@@ -2,6 +2,7 @@
 
 namespace MyListerHub\Media\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Http\UploadedFile;
@@ -87,7 +88,7 @@ class ImageController extends Controller
             }
 
             $image = SpatieImage::load($tempPath);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             report($e);
             $image = null;
         }

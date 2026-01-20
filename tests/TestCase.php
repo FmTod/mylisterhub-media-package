@@ -13,7 +13,7 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'MyListerHub\\Media\\Database\\Factories\\'.class_basename($modelName).'Factory'
+            fn (string $modelName) => 'MyListerHub\\Media\\Database\\Factories\\' . class_basename($modelName) . 'Factory'
         );
     }
 
@@ -21,7 +21,7 @@ class TestCase extends Orchestra
     {
         config()->set('database.default', 'testing');
 
-        foreach (glob(__DIR__.'/../database/migrations/*.php.stub') as $filename) {
+        foreach (glob(__DIR__ . '/../database/migrations/*.php.stub') as $filename) {
             $migration = include $filename;
             $migration->up();
         }

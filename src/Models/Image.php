@@ -144,7 +144,7 @@ class Image extends Model
             : $this->url;
 
         // Add cache busting parameter if needed
-        return $url.($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?').'_t='.now()->getTimestamp() : '');
+        return $url . ($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
     }
 
     /**
