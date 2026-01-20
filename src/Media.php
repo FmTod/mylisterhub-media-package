@@ -63,11 +63,56 @@ class Media
         // Save the processed image to the destination path
         $image->save($destinationPath);
 
+        // Delete the original image if it was not saved to the same path
+        if ($sourcePath !== $destinationPath) {
+            @unlink($sourcePath);
+        }
+
         return new ProcessedImage(
             path: $destinationPath,
-            filename: $processedFilename,
+            name: $processedFilename,
             width: $image->getWidth(),
             height: $image->getHeight(),
+            originalWidth: $originalWidth,
+            originalHeight: $originalHeight,
+        );
+    }
+
+    public function storeImage(ProcessedImage|string $source, string $name, ?string $disk = null): ProcessedImage
+    {
+        $path = config('media.storage.images.path', 'media/images');
+
+        if (is_null($disk)) {
+            $disk = (string) config('media.storage.images.disk', 'public');
+        }
+
+        if ($source instanceof ProcessedImage) {
+            $width = $source->width;
+            $height = $source->height;
+            $originalWidth = $source->originalWidth;
+            $originalHeight = $source->originalHeight;
+            $sourcePath = $source->path;
+        } else {
+            $image = SpatieImage::load($source);
+            $width = $image->getWidth();
+            $height = $image->getHeight();
+            $originalWidth = $width;
+            $originalHeight = $height;
+            $sourcePath = $source;
+        }
+
+        $stream = fopen($sourcePath, 'rb');
+        Storage::disk($disk)->put("{$path}/{$name}", $stream);
+
+        if (is_resource($stream)) {
+            fclose($stream);
+        }
+
+        return new ProcessedImage(
+            path: "{$path}/{$name}",
+            name: $name,
+            width: $width,
+            height: $height,
             originalWidth: $originalWidth,
             originalHeight: $originalHeight,
         );
@@ -80,33 +125,9 @@ class Media
      */
     public function processAndStoreImage(string $sourcePath, string $destinationName, ?string $disk = null, ?bool $optimize = null): ProcessedImage
     {
-        $path = config('media.storage.images.path', 'media/images');
+        $processedImage = $this->processImage($sourcePath, $destinationName, optimize: $optimize);
 
-        if (is_null($disk)) {
-            $disk = (string) config('media.storage.images.disk', 'public');
-        }
-
-        // Load and process the image
-        $result = $this->processImage($sourcePath, $destinationName, optimize: $optimize);
-
-        // Use stream to avoid loading an entire file into memory
-        $stream = fopen($result->path, 'rb');
-        Storage::disk($disk)->put("{$path}/{$result->filename}", $stream);
-
-        if (is_resource($stream)) {
-            fclose($stream);
-        }
-
-        @unlink($result->path);
-
-        return new ProcessedImage(
-            path: "{$path}/{$result->filename}",
-            filename: $result->filename,
-            width: $result->width,
-            height: $result->height,
-            originalWidth: $result->originalWidth,
-            originalHeight: $result->originalHeight,
-        );
+        return $this->storeImage($processedImage, $processedImage->name, $disk);
     }
 
     /**
@@ -124,9 +145,11 @@ class Media
 
         $imageClass = config('media.models.image', Image::class);
 
+        @unlink($filePath);
+
         return $imageClass::create([
-            'source' => $result->filename,
-            'name' => $result->filename,
+            'source' => $result->name,
+            'name' => $result->name,
             'width' => $result->width,
             'height' => $result->height,
         ]);
@@ -163,7 +186,7 @@ class Media
 
             $result = $this->processAndStoreImage($tempPath, $name, $disk, $optimize);
             $dimensions = ['width' => $result->width, 'height' => $result->height];
-            $finalName = $result->filename;
+            $finalName = $result->name;
 
             @unlink($tempPath);
         } else {
