@@ -5,9 +5,46 @@ namespace MyListerHub\Media\Http\Middleware;
 use Closure;
 use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use MyListerHub\Media\Facades\Media;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
+/**
+ * Optimize Images Middleware
+ *
+ * This middleware automatically processes and optimizes all image files uploaded
+ * in HTTP requests before they reach the controller. It intercepts the request,
+ * identifies image files, and applies optimization transformations.
+ *
+ * Features:
+ * - Automatic image resizing to maximum dimensions
+ * - WebP conversion for better compression
+ * - Image optimization to reduce file size
+ * - Graceful error handling with reporting
+ * - Updates request with processed files
+ *
+ * ⚠️ WARNING - Potential Issues:
+ * This middleware processes files BEFORE validation runs, which can introduce
+ * several problems:
+ *
+ * 1. Performance Impact: All uploaded files are processed regardless of whether
+ *    they will pass validation, wasting server resources.
+ *
+ * 2. Security Risks: Files are processed before being validated, potentially
+ *    exposing the server to malicious file attacks.
+ *
+ * 3. Resource Abuse: Toxic users can attach files to random requests, forcing
+ *    unnecessary image processing and slowing down the server.
+ *
+ * 4. Validation Mismatch: Files are processed before validation, so invalid
+ *    uploads still consume processing time.
+ *
+ * 🎯 RECOMMENDED ALTERNATIVE:
+ * Instead of using this middleware, call Media::processImage() directly in your
+ * controllers or form requests AFTER validation passes. This ensures only valid
+ * files are processed and only on legitimate upload endpoints.
+ *
+ * @see \MyListerHub\Media\Media::processImage() (Direct image processing method)
+ */
 class OptimizeImages
 {
     /**
@@ -15,70 +52,61 @@ class OptimizeImages
      */
     public function handle(Request $request, Closure $next): mixed
     {
-        $allowedMimes = config('media.storage.images.allowed_mimes', ['jpg', 'jpeg', 'png', 'webp']);
         $optimize = config('media.storage.images.optimize', true);
 
         if (! $optimize) {
             return $next($request);
         }
 
-        collect($request->files->all())
-            ->flatten()
-            ->filter(function (UploadedFile $file) use ($allowedMimes) {
-                // Only process image files that match the allowed MIME types
-                $extension = mb_strtolower($file->getClientOriginalExtension());
+        $hasChanges = false;
+        $files = $request->allFiles();
+        $allowedMimes = config('media.storage.images.allowed_mimes', ['jpg', 'jpeg', 'png', 'webp']);
 
-                return $file->isValid() && in_array($extension, $allowedMimes, true);
-            })
-            ->each(function (UploadedFile $file) use ($request, $optimize) {
-                try {
-                    // Process the image in-place
-                    $result = Media::processImage(
-                        $file->getRealPath(),
-                        $file->getClientOriginalName(),
-                        optimize: $optimize,
-                    );
+        // Recursively walk through files to find and convert images
+        array_walk_recursive($files, static function (&$file) use ($optimize, $allowedMimes, &$hasChanges) {
+            if (! $file instanceof UploadedFile
+                || ! $file->isValid()
+                || ! in_array(mb_strtolower($file->getClientOriginalExtension()), $allowedMimes, true)) {
+                return;
+            }
 
-                    // Determine the MIME type based on the processed filename
-                    $mimeType = str_ends_with($result->filename, '.webp') ? 'image/webp' : $file->getMimeType();
+            try {
+                $result = Media::processImage(
+                    $file->getRealPath(),
+                    $file->getClientOriginalName(),
+                    optimize: $optimize,
+                );
 
-                    // Create a new UploadedFile instance with the processed file
-                    $processedFile = new UploadedFile(
-                        $result->path,
-                        $result->filename,
-                        $mimeType,
-                        test: true, // test mode to allow setting the path manually
-                    );
+                // Determine the MIME type based on the processed filename
+                $mimeType = str_ends_with($result->name, '.webp') ? 'image/webp' : $file->getMimeType();
 
-                    // Replace the file in the request
-                    $this->replaceFileInRequest($request, $file, $processedFile);
-                } catch (Exception $e) {
-                    if (app()->environment('testing')) {
-                        throw $e;
-                    }
+                // Create a new UploadedFile instance with the processed file
+                $file = new UploadedFile(
+                    $result->path,
+                    $result->name,
+                    $mimeType,
+                    test: true, // test mode to allow setting the path manually
+                );
 
-                    report($e);
+                $hasChanges = true;
+            } catch (Exception $e) {
+                if (app()->environment('testing')) {
+                    throw $e;
                 }
-            });
 
-        return $next($request);
-    }
-
-    /**
-     * Replace a file in the request with a new processed file.
-     */
-    protected function replaceFileInRequest(Request $request, UploadedFile $originalFile, UploadedFile $newFile): void
-    {
-        // Find and replace the file in the request
-        $files = $request->files->all();
-
-        array_walk_recursive($files, static function (&$file) use ($originalFile, $newFile) {
-            if ($file === $originalFile) {
-                $file = $newFile;
+                report($e);
             }
         });
 
-        // Update the request with the new files
-        $request->files->replace($files);
+        if ($hasChanges) {
+            $request->files->replace($files);
+
+            (function () {
+                /** @var Request $this */
+                unset($this->convertedFiles);
+            })->call($request);
+        }
+
+        return $next($request);
     }
 }
