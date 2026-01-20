@@ -9,12 +9,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use MyListerHub\API\Http\Controller;
 use MyListerHub\API\Http\Request;
+use MyListerHub\Media\Facades\Media;
 use MyListerHub\Media\Http\Requests\ImageRequest;
 use MyListerHub\Media\Http\Requests\ImageUploadRequest;
 use MyListerHub\Media\Http\Resources\ImageResource;
 use MyListerHub\Media\Models\Image;
 use RahulHaque\Filepond\Facades\Filepond;
 use RahulHaque\Filepond\Models\Filepond as FilepondModel;
+use Spatie\Image\Image as SpatieImage;
 
 class ImageController extends Controller
 {
@@ -32,23 +34,16 @@ class ImageController extends Controller
         $image = $model::findOrFail($id);
 
         $file = $request->file('file');
-        $path = config('media.storage.images.path');
-        $disk = config('media.storage.images.disk');
-        $imageDetails = \Spatie\Image\Image::load($file->getRealPath());
+        $isUrl = Str::matches('/^https?:\/\//', $image->source);
+        $name = $isUrl ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName()) : $image->name;
 
-        $name = Str::contains($image->source, ['http://', 'https://'])
-            ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName())
-            : $image->name;
-
-        $source = Str::contains($image->source, ['http://', 'https://']) ? $name : $image->source;
-
-        $file->storeAs($path, $name, $disk);
+        $result = Media::storeImage(source: $file->getRealPath(), name: $name);
 
         $image->update([
-            'name' => $name,
-            'source' => $source,
-            'width' => $imageDetails->getWidth(),
-            'height' => $imageDetails->getHeight(),
+            'name' => $result->name,
+            'source' => $isUrl ? $result->name : $image->source,
+            'width' => $result->width,
+            'height' => $result->height,
         ]);
 
         return $this->response($image);
@@ -60,43 +55,53 @@ class ImageController extends Controller
             ? $request->input('files')
             : $request->file('files');
 
+        $images = collect($files)->map(fn (UploadedFile|string $file) => $this->processUploadedFile($file));
+
+        return $this->response($images);
+    }
+
+    protected function processUploadedFile(UploadedFile|string $file): Image
+    {
+        if ($file instanceof UploadedFile) {
+            return Media::createImageFromFile($file);
+        }
+
         $path = config('media.storage.images.path');
         $disk = config('media.storage.images.disk');
 
-        $images = collect($files)->map(function (UploadedFile|string $file) use ($path, $disk) {
-            if (is_string($file)) {
-                $filepond = Filepond::field($file);
-                /** @var FilepondModel $model */
-                $model = $filepond->getModel();
+        $filepond = Filepond::field($file);
+        /** @var FilepondModel $filepondModel */
+        $filepondModel = $filepond->getModel();
 
-                $content = Storage::disk($model->disk)->get($model->filepath);
-                $name = sprintf('%s_%s', now()->getTimestamp(), $model->filename);
+        $name = sprintf('%s_%s', now()->getTimestamp(), $filepondModel->filename);
 
-                $tempPath = tempnam(sys_get_temp_dir(), 'media_');
-                file_put_contents($tempPath, $content);
+        try {
+            $content = Storage::disk($filepondModel->disk)->readStream($filepondModel->filepath);
+            $tempPath = tempnam(sys_get_temp_dir(), 'media_');
+            $destStream = fopen($tempPath, 'wb');
 
-                if ($model->disk === Filepond::getTempDisk()) {
-                    $filepond->copyTo("{$path}/{$name}", $disk, 'public');
-                }
-            } else {
-                $name = sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName());
-                $tempPath = $file->getRealPath();
-
-                $file->storeAs($path, $name, $disk);
+            if ($content && $destStream) {
+                stream_copy_to_stream($content, $destStream);
+                fclose($content);
+                fclose($destStream);
             }
 
-            $image = \Spatie\Image\Image::load($tempPath);
-            $model = $this->getModel();
+            $image = SpatieImage::load($tempPath);
+        } catch (\Exception $e) {
+            report($e);
+            $image = null;
+        }
 
-            return $model::create([
-                'name' => $name,
-                'source' => $name,
-                'width' => $image->getWidth(),
-                'height' => $image->getHeight(),
-            ]);
-        });
+        if ($filepondModel->disk === Filepond::getTempDisk()) {
+            $filepond->copyTo("{$path}/{$name}", $disk, 'public');
+        }
 
-        return $this->response($images);
+        return ($this->getModel())::create([
+            'name' => $name,
+            'source' => $name,
+            'width' => $image?->getWidth(),
+            'height' => $image?->getHeight(),
+        ]);
     }
 
     protected function getModel(): string

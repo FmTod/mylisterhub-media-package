@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use MyListerHub\Media\Database\Factories\ImageFactory;
@@ -51,30 +50,27 @@ class Image extends Model
     /**
      * Create a new image from a file.
      */
-    public static function createFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null): static
+    public static function createFromFile(UploadedFile|File $file, ?string $name = null, ?string $disk = null, ?bool $optimize = null): static
     {
-        return Media::createImageFromFile($file, $name, $disk);
+        return Media::createImageFromFile($file, $name, $disk, $optimize);
     }
 
     /**
      * Create a new image from an url.
      */
-    public static function createFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null): static
+    public static function createFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null, ?bool $optimize = null): static
     {
-        return Media::createImageFromUrl($url, $name, $upload, $disk);
+        return Media::createImageFromUrl($url, $name, $upload, $disk, $optimize);
     }
 
     /**
      * Store the image file to the specified disk and path.
      */
-    public function storeFile(?string $filename = null, ?string $disk = null, bool $optimize = true): bool
+    public function storeFile(?string $filename = null, ?string $disk = null, ?bool $optimize = null): bool
     {
         if (! Str::isMatch('/http(s)?:\/\//', $this->source)) {
             throw new InvalidArgumentException('The source must be a valid URL starting with http(s)://');
         }
-
-        // Get the path where images should be stored from the configuration
-        $path = config('media.storage.images.path', 'media/images');
 
         // If no disk is provided, use the default disk from the configuration
         if (is_null($disk)) {
@@ -83,53 +79,45 @@ class Image extends Model
 
         // If no filename is provided, generate one based on the source URL and current timestamp
         if (is_null($filename) || $filename === '') {
-            /** @noinspection CallableParameterUseCaseInTypeContextInspection */
+            /** @noinspection PhpVoidFunctionResultUsedInspection */
             $filename = throw_unless(
-                condition: $this->name ?? (string) Str::of($this->source)
-                    ->afterLast('/')
-                    ->before('?')
-                    ->trim()
-                    ->prepend('_')
-                    ->prepend(now()->getTimestamp()),
+                condition: $this->name ?? Media::getFilenameFromUrl($this->source),
                 exception: new InvalidArgumentException('Could not guess the name of the image. Please provide a filename.')
             );
         }
 
         // Extract the file extension and name from the provided filename
-        $extension = pathinfo($filename, PATHINFO_EXTENSION) ?: 'webp';
+        $extension = pathinfo($filename, PATHINFO_EXTENSION) ?: 'jpg';
         $name = pathinfo($filename, PATHINFO_FILENAME);
 
-        // Get the content of the image from the source URL
-        $content = file_get_contents($this->source);
-        if ($content === false) {
+        // Download the image from the source URL using streams
+        $tempPath = tempnam(sys_get_temp_dir(), 'media_');
+
+        $sourceStream = fopen($this->source, 'rb');
+        if ($sourceStream === false) {
             throw new InvalidArgumentException('Could not download the image from the source URL.');
         }
 
-        // Create a temporary file to store the image content
-        $tempPath = tempnam(sys_get_temp_dir(), 'media_');
-        file_put_contents($tempPath, $content);
-
-        // Load the image using Spatie's Image library
-        $image = \Spatie\Image\Image::load($tempPath);
-
-        // Optimize the image if required
-        if ($optimize) {
-            $extension = 'webp'; // Ensure the extension is set to webp for optimized images
-            $image->optimize();
+        $destStream = fopen($tempPath, 'wb');
+        if ($destStream === false) {
+            fclose($sourceStream);
+            throw new InvalidArgumentException('Could not create temporary file for image download.');
         }
 
-        // Save the image with the specified extension
-        $image->save("{$tempPath}.{$extension}");
+        stream_copy_to_stream($sourceStream, $destStream);
+        fclose($sourceStream);
+        fclose($destStream);
 
-        // Store the image in the specified disk and path
-        Storage::disk($disk)->writeStream("{$path}/{$name}.{$extension}", fopen("{$tempPath}.{$extension}", 'rb'));
+        $result = Media::processAndStoreImage($tempPath, "{$name}.{$extension}", $disk, $optimize);
 
-        // Update the model with the new source and dimensions
+        @unlink($tempPath);
+
+        // Update the model with the new source and dimensions (using the final name which may be .webp)
         return $this->update([
-            'name' => "{$name}.{$extension}",
-            'source' => "{$name}.{$extension}",
-            'width' => $image->getWidth(),
-            'height' => $image->getHeight(),
+            'name' => $result->name,
+            'source' => $result->name,
+            'width' => $result->width,
+            'height' => $result->height,
         ]);
     }
 
@@ -156,7 +144,7 @@ class Image extends Model
             : $this->url;
 
         // Add cache busting parameter if needed
-        return $url . ($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
+        return $url.($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?').'_t='.now()->getTimestamp() : '');
     }
 
     /**

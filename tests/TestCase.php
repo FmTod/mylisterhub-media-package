@@ -13,21 +13,21 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'MyListerHub\\Media\\Database\\Factories\\' . class_basename($modelName) . 'Factory'
+            fn (string $modelName) => 'MyListerHub\\Media\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
     }
 
-    public function getEnvironmentSetUp($app)
+    public function getEnvironmentSetUp($app): void
     {
         config()->set('database.default', 'testing');
 
-        /*
-        $migration = include __DIR__.'/../database/migrations/create_media_table.php.stub';
-        $migration->up();
-        */
+        foreach (glob(__DIR__.'/../database/migrations/*.php.stub') as $filename) {
+            $migration = include $filename;
+            $migration->up();
+        }
     }
 
-    protected function getPackageProviders($app)
+    protected function getPackageProviders($app): array
     {
         return [
             MediaServiceProvider::class,

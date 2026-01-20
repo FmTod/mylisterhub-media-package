@@ -20,8 +20,10 @@
         "php": ">=8.2",
         "illuminate/contracts": "^10.0|^11.0",
         "mylisterhub/api": "*",
+        "mylisterhub/core": "*",
         "rahulhaque/laravel-filepond": "^10.0|^11.0",
         "spatie/image": "^3.0",
+        "spatie/image-optimizer": "^1.8",
         "spatie/laravel-package-tools": "^1.14.0"
     },
     "require-dev": {
@@ -47,7 +49,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "FmTod\\Media\\Tests\\": "tests/"
+            "MyListerHub\\Media\\Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -81,6 +83,22 @@
         {
             "type": "vcs",
             "url": "https://github.com/FmTod/mylisterhub-api-package"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/FmTod/mylisterhub-core-package"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/FmTod/laravel-money-source"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/FmTod/laravel-tabulator"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/FmTod/laravel-tabulator-inertia"
         }
     ]
 }
