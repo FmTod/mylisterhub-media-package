@@ -3,6 +3,7 @@
 namespace MyListerHub\Media\Console\Commands;
 
 use Aws\S3\Exception\S3Exception;
+use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
@@ -53,11 +54,13 @@ class ConfigureS3Cors extends Command
             $config = config("filesystems.disks.{$diskName}");
             if (($config['driver'] ?? '') !== 's3') {
                 $this->error("Disk '{$diskName}' is not using the 's3' driver.");
+
                 return self::FAILURE;
             }
 
             if (! $disk instanceof FilesystemAdapter) {
                 $this->error("Disk '{$diskName}' is not a FilesystemAdapter instance.");
+
                 return self::FAILURE;
             }
 
@@ -71,7 +74,7 @@ class ConfigureS3Cors extends Command
                     'AllowedHeaders' => ['*'],
                     'AllowedMethods' => ['GET', 'HEAD'],
                     'AllowedOrigins' => [$allowedOrigin],
-                    'ExposeHeaders'  => [
+                    'ExposeHeaders' => [
                         'ETag',
                         'Access-Control-Allow-Origin',
                         'Content-Length',
@@ -79,7 +82,7 @@ class ConfigureS3Cors extends Command
                         'Last-Modified',
                         'Cache-Control',
                     ],
-                    'MaxAgeSeconds'  => 3000,
+                    'MaxAgeSeconds' => 3000,
                 ],
             ];
 
@@ -101,10 +104,12 @@ class ConfigureS3Cors extends Command
 
             return self::SUCCESS;
         } catch (S3Exception $e) {
-            $this->error("AWS Error: " . $e->getMessage());
+            $this->error('AWS Error: ' . $e->getMessage());
+
             return self::FAILURE;
-        } catch (\Exception $e) {
-            $this->error("Error: " . $e->getMessage());
+        } catch (Exception $e) {
+            $this->error('Error: ' . $e->getMessage());
+
             return self::FAILURE;
         }
     }

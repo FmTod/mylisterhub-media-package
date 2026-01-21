@@ -62,6 +62,26 @@ class ImageController extends Controller
         return $this->response($images);
     }
 
+    public function batchRotate(Request $request)
+    {
+        $validated = $request->validate([
+            'direction' => ['required', 'in:left,right'],
+            'images' => ['required', 'array', 'min:1'],
+            'images.*' => ['integer', 'exists:images,id'],
+        ]);
+
+        $orientation = $validated['direction'] === 'left'
+            ? Orientation::RotateMinus90
+            : Orientation::Rotate90;
+
+        $images = Image::query()
+            ->whereIn('id', $validated['images'])
+            ->get()
+            ->map(fn (Image $image) => $image->rotate($orientation));
+
+        return $this->response($images);
+    }
+
     protected function processUploadedFile(UploadedFile|string $file): Image
     {
         if ($file instanceof UploadedFile) {
@@ -104,26 +124,6 @@ class ImageController extends Controller
             'width' => $image?->getWidth(),
             'height' => $image?->getHeight(),
         ]);
-    }
-
-    public function batchRotate(Request $request)
-    {
-        $validated = $request->validate([
-            'direction' => ['required', 'in:left,right'],
-            'images' => ['required', 'array', 'min:1'],
-            'images.*' => ['integer', 'exists:images,id'],
-        ]);
-
-        $orientation = $validated['direction'] === 'left'
-            ? Orientation::RotateMinus90
-            : Orientation::Rotate90;
-
-        $images = Image::query()
-            ->whereIn('id', $validated['images'])
-            ->get()
-            ->map(fn (Image $image) => $image->rotate($orientation));
-
-        return $this->response($images);
     }
 
     protected function getModel(): string
