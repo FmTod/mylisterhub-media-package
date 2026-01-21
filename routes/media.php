@@ -11,5 +11,6 @@ Route::group($options, function () {
     Route::apiResource('videos', VideoController::class);
 
     Route::post('images/upload', [ImageController::class, 'upload'])->name('images.upload');
+    Route::post('images/batch/rotate', [ImageController::class, 'batchRotate'])->name('images.batch-rotate');
     Route::apiResource('images', ImageController::class);
 });

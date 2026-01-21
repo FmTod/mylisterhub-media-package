@@ -9,10 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use MyListerHub\Media\Database\Factories\ImageFactory;
 use MyListerHub\Media\Facades\Media;
+use Spatie\Image\Enums\Orientation;
+use Spatie\Image\Image as SpatieImage;
 use Stringable;
 
 class Image extends Model
@@ -40,6 +43,15 @@ class Image extends Model
     ];
 
     /**
+     * The attributes that should be cast.
+     */
+    protected $casts = [
+        'width' => 'integer',
+        'height' => 'integer',
+        'dynamic' => 'boolean',
+    ];
+
+    /**
      * Create a new factory instance for the model.
      */
     public static function newFactory(): ImageFactory
@@ -61,6 +73,65 @@ class Image extends Model
     public static function createFromUrl(string $url, ?string $name = null, bool $upload = false, ?string $disk = null, ?bool $optimize = null): static
     {
         return Media::createImageFromUrl($url, $name, $upload, $disk, $optimize);
+    }
+
+    /**
+     * Rotate image using Spatie Image Orientation enum. Remote URL sources are not supported.
+     */
+    public function rotate(Orientation $orientation): static
+    {
+        if (Str::isMatch('/^https?:\/\//', $this->source)) {
+            throw new InvalidArgumentException('Rotating remote URL images is not supported.');
+        }
+
+        $disk = (string) config('media.storage.images.disk', 'public');
+        $path = trim(config('media.storage.images.path', 'media/images'), '/');
+        $relativePath = "{$path}/{$this->source}";
+
+        if (! Storage::disk($disk)->exists($relativePath)) {
+            throw new InvalidArgumentException('Image file not found for rotation.');
+        }
+
+        // Download file to temp location (supports remote disks like S3)
+        $extension = pathinfo($this->source, PATHINFO_EXTENSION) ?: 'jpg';
+        $tempPath = tempnam(sys_get_temp_dir(), 'media_rotate_') . '.' . $extension;
+        $stream = Storage::disk($disk)->readStream($relativePath);
+
+        if ($stream === false) {
+            throw new InvalidArgumentException('Could not read image file for rotation.');
+        }
+
+        $tempStream = fopen($tempPath, 'wb');
+        if ($tempStream === false) {
+            throw new InvalidArgumentException('Could not create temporary file for rotation.');
+        }
+
+        stream_copy_to_stream($stream, $tempStream);
+        fclose($stream);
+        fclose($tempStream);
+
+        // Rotate the image using Spatie Image
+        $spatie = SpatieImage::load($tempPath)->orientation($orientation);
+        $spatie->save();
+
+        // Upload rotated image back to storage
+        $uploadStream = fopen($tempPath, 'rb');
+        if ($uploadStream === false) {
+            @unlink($tempPath);
+            throw new InvalidArgumentException('Could not read rotated image for upload.');
+        }
+
+        Storage::disk($disk)->put($relativePath, $uploadStream);
+        fclose($uploadStream);
+
+        @unlink($tempPath);
+
+        $this->fill([
+            'width' => $spatie->getWidth(),
+            'height' => $spatie->getHeight(),
+        ])->save();
+
+        return $this->refresh();
     }
 
     /**

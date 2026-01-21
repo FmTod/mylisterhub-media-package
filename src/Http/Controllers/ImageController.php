@@ -17,6 +17,7 @@ use MyListerHub\Media\Http\Resources\ImageResource;
 use MyListerHub\Media\Models\Image;
 use RahulHaque\Filepond\Facades\Filepond;
 use RahulHaque\Filepond\Models\Filepond as FilepondModel;
+use Spatie\Image\Enums\Orientation;
 use Spatie\Image\Image as SpatieImage;
 
 class ImageController extends Controller
@@ -35,7 +36,7 @@ class ImageController extends Controller
         $image = $model::findOrFail($id);
 
         $file = $request->file('file');
-        $isUrl = Str::matches('/^https?:\/\//', $image->source);
+        $isUrl = Str::match('/^https?:\/\//', $image->source);
         $name = $isUrl ? sprintf('%s_%s', now()->getTimestamp(), $file->getClientOriginalName()) : $image->name;
 
         $result = Media::storeImage(source: $file->getRealPath(), name: $name);
@@ -103,6 +104,26 @@ class ImageController extends Controller
             'width' => $image?->getWidth(),
             'height' => $image?->getHeight(),
         ]);
+    }
+
+    public function batchRotate(Request $request)
+    {
+        $validated = $request->validate([
+            'direction' => ['required', 'in:left,right'],
+            'images' => ['required', 'array', 'min:1'],
+            'images.*' => ['integer', 'exists:images,id'],
+        ]);
+
+        $orientation = $validated['direction'] === 'left'
+            ? Orientation::RotateMinus90
+            : Orientation::Rotate90;
+
+        $images = Image::query()
+            ->whereIn('id', $validated['images'])
+            ->get()
+            ->map(fn (Image $image) => $image->rotate($orientation));
+
+        return $this->response($images);
     }
 
     protected function getModel(): string
