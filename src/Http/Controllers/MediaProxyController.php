@@ -2,10 +2,10 @@
 
 namespace MyListerHub\Media\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MediaProxyController extends Controller
@@ -13,9 +13,6 @@ class MediaProxyController extends Controller
     /**
      * Proxy an external image to avoid CORS issues.
      * Streams the response to avoid memory issues with large files.
-     *
-     * @param Request $request
-     * @return \Symfony\Component\HttpFoundation\StreamedResponse
      */
     public function proxy(Request $request): ?StreamedResponse
     {
@@ -38,7 +35,7 @@ class MediaProxyController extends Controller
                 'http' => [
                     'timeout' => 30,
                     'ignore_errors' => true, // Handle errors manually
-                ]
+                ],
             ]);
 
             $stream = @fopen($url, 'rb', false, $context);
@@ -61,7 +58,7 @@ class MediaProxyController extends Controller
                     $contentType = trim(substr($header, 13));
                 }
                 if (preg_match('/^HTTP\/[\d.]+\s+(\d+)/', $header, $matches)) {
-                    $statusCode = (int)$matches[1];
+                    $statusCode = (int) $matches[1];
                 }
             }
 
@@ -85,12 +82,13 @@ class MediaProxyController extends Controller
                 ]
             );
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Exception in image proxy', [
                 'url' => $url,
                 'error' => $e->getMessage(),
             ]);
             abort(500, 'Failed to proxy image: ' . $e->getMessage());
+
             return null;
         }
     }
