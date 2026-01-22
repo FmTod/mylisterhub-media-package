@@ -3,6 +3,7 @@
 namespace MyListerHub\Media;
 
 use MyListerHub\Media\Console\Commands\ConfigureS3Cors;
+use MyListerHub\Media\Console\Commands\OptimizeImagesCommand;
 use MyListerHub\Media\Http\Middleware\OptimizeImages;
 use MyListerHub\Media\Models\Image;
 use MyListerHub\Media\Observers\ImageObserver;
@@ -35,7 +36,8 @@ class MediaServiceProvider extends PackageServiceProvider
             ->hasRoute('media')
             ->hasMigration('create_videos_table')
             ->hasMigration('create_videoables_table')
-            ->hasCommand(ConfigureS3Cors::class);
+            ->hasCommand(ConfigureS3Cors::class)
+            ->hasCommand(OptimizeImagesCommand::class);
     }
 
     public function packageBooted(): void
