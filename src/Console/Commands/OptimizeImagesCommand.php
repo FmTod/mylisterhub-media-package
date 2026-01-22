@@ -38,11 +38,12 @@ class OptimizeImagesCommand extends Command
                 $batch->add($jobs);
                 $count += count($jobs);
 
-                $this->info("Added " . count($jobs) . " jobs to batch {$batch->id}...");
+                $this->info('Added ' . count($jobs) . " jobs to batch {$batch->id}...");
             });
 
         if ($count === 0) {
             $this->info('No images to optimize.');
+
             return;
         }
 
