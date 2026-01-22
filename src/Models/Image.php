@@ -40,6 +40,7 @@ class Image extends Model
      */
     protected $appends = [
         'url',
+        'remote',
     ];
 
     /**
@@ -137,7 +138,7 @@ class Image extends Model
     /**
      * Store the image file to the specified disk and path.
      */
-    public function storeFile(?string $filename = null, ?string $disk = null, ?bool $optimize = null): bool
+    public function storeFile(?string $filename = null, ?string $disk = null, ?bool $optimize = null): static
     {
         if (! Str::isMatch('/http(s)?:\/\//', $this->source)) {
             throw new InvalidArgumentException('The source must be a valid URL starting with http(s)://');
@@ -184,12 +185,14 @@ class Image extends Model
         @unlink($tempPath);
 
         // Update the model with the new source and dimensions (using the final name which may be .webp)
-        return $this->update([
+        $this->update([
             'name' => $result->name,
             'source' => $result->name,
             'width' => $result->width,
             'height' => $result->height,
         ]);
+
+        return $this;
     }
 
     /**
@@ -281,6 +284,13 @@ class Image extends Model
             static fn ($value, $attributes): int => isset($attributes['source'])
                 ? Media::getImageSize($attributes['source'])
                 : 0,
+        );
+    }
+
+    protected function remote(): Attribute
+    {
+        return Attribute::get(
+            static fn ($value, $attributes): bool => Str::isMatch('/^http(s)?:\/\//', $attributes['source']),
         );
     }
 }

@@ -74,10 +74,26 @@ class ImageController extends Controller
             ? Orientation::RotateMinus90
             : Orientation::Rotate90;
 
+        /** @var \Illuminate\Support\Collection $images */
         $images = Image::query()
             ->whereIn('id', $validated['images'])
-            ->get()
-            ->map(fn (Image $image) => $image->rotate($orientation));
+            ->chunkMap(fn (Image $image) => $image->rotate($orientation));
+
+        return $this->response($images);
+    }
+
+    public function batchStoreFile(Request $request)
+    {
+        $validated = $request->validate([
+            'images' => ['required', 'array', 'min:1'],
+            'images.*' => ['integer', 'exists:images,id'],
+        ]);
+
+        /** @var \Illuminate\Support\Collection $images */
+        $images = Image::query()
+            ->where('source', 'like', 'http%')
+            ->whereIn('id', $validated['images'])
+            ->chunkMap(fn (Image $image) => $image->storeFile());
 
         return $this->response($images);
     }
