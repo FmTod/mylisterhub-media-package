@@ -32,7 +32,7 @@
     "dependencies": {
         "axios": "^1.6.2",
         "typescript": "^5.3.2",
-        "vite-plugin-dts": "^3.6.4",
+        "vite-plugin-dts": "^4.0.0",
         "vue-api-query": "^1.11.0"
     }
 }
