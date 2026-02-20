@@ -5,7 +5,7 @@ namespace MyListerHub\Media\Http\Controllers;
 use Exception;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Resources\Json\ResourceCollection;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use MyListerHub\API\Http\Controller;
@@ -19,6 +19,7 @@ use RahulHaque\Filepond\Facades\Filepond;
 use RahulHaque\Filepond\Models\Filepond as FilepondModel;
 use Spatie\Image\Enums\Orientation;
 use Spatie\Image\Image as SpatieImage;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 class ImageController extends Controller
 {
@@ -57,9 +58,9 @@ class ImageController extends Controller
             ? $request->input('files')
             : $request->file('files');
 
-        $images = collect($files)->map(fn (UploadedFile|string $file) => $this->processUploadedFile($file));
+        $images = array_map(fn ($file) => $this->processUploadedFile($file), Arr::wrap($files));
 
-        return $this->response($images);
+        return $this->response(collect($images));
     }
 
     public function batchRotate(Request $request)
