@@ -9,18 +9,18 @@ use function Pest\Laravel\postJson;
 beforeEach(function () {
     Storage::fake(config('media.storage.images.disk', 'public'));
 
-    $fixtureDirectory = sys_get_temp_dir().'/media-import-fixtures-'.bin2hex(random_bytes(8));
+    $fixtureDirectory = sys_get_temp_dir() . '/media-import-fixtures-' . bin2hex(random_bytes(8));
     mkdir($fixtureDirectory, 0777, true);
 
-    $firstFixture = $fixtureDirectory.'/first.jpg';
-    $secondFixture = $fixtureDirectory.'/second.jpg';
-    $thirdFixture = $fixtureDirectory.'/third.jpg';
+    $firstFixture = $fixtureDirectory . '/first.jpg';
+    $secondFixture = $fixtureDirectory . '/second.jpg';
+    $thirdFixture = $fixtureDirectory . '/third.jpg';
 
     createFixtureImage($firstFixture, 20, 10, [255, 0, 0]);
     createFixtureImage($secondFixture, 30, 15, [0, 255, 0]);
     createFixtureImage($thirdFixture, 40, 20, [0, 0, 255]);
 
-    $routerPath = $fixtureDirectory.'/router.php';
+    $routerPath = $fixtureDirectory . '/router.php';
     $routerScript = sprintf(<<<'PHP'
         <?php
 
@@ -57,7 +57,7 @@ beforeEach(function () {
 
     $this->fixtureDirectory = $fixtureDirectory;
     $this->serverProcess = $process;
-    $this->serverUrl = "http://127.0.0.1:$port";
+    $this->serverUrl = "http://127.0.0.1:{$port}";
 });
 
 afterEach(function () {
@@ -70,7 +70,7 @@ afterEach(function () {
         return;
     }
 
-    foreach (glob($this->fixtureDirectory.'/*') ?: [] as $file) {
+    foreach (glob($this->fixtureDirectory . '/*') ?: [] as $file) {
         @unlink($file);
     }
 
@@ -80,9 +80,9 @@ afterEach(function () {
 it('imports remote images with duplicate names into distinct stored files', function () {
     /** @var Collection<int, Image> $images */
     $images = collect([
-        $this->serverUrl.'/s-l500.jpg?variant=1',
-        $this->serverUrl.'/s-l500.jpg?variant=2',
-        $this->serverUrl.'/s-l500.jpg?variant=3',
+        $this->serverUrl . '/s-l500.jpg?variant=1',
+        $this->serverUrl . '/s-l500.jpg?variant=2',
+        $this->serverUrl . '/s-l500.jpg?variant=3',
     ])->map(fn (string $source) => Image::factory()->create([
         'name' => 's-l500.jpg',
         'source' => $source,

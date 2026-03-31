@@ -190,23 +190,6 @@ class Image extends Model
         return $this;
     }
 
-    protected function defaultStoreFilename(): string
-    {
-        $filename = $this->name ?? Media::getFilenameFromUrl($this->source);
-
-        if (! is_string($filename) || $filename === '') {
-            throw new InvalidArgumentException('Could not guess the name of the image. Please provide a filename.');
-        }
-
-        $idPrefix = $this->getKey() ? sprintf('%s_', $this->getKey()) : '';
-
-        if ($idPrefix === '' || Str::startsWith($filename, $idPrefix)) {
-            return $filename;
-        }
-
-        return $idPrefix . ltrim($filename, '/');
-    }
-
     /**
      * Build the URL for the image.
      */
@@ -261,6 +244,23 @@ class Image extends Model
                     });
                 });
         });
+    }
+
+    protected function defaultStoreFilename(): string
+    {
+        $filename = $this->name ?? Media::getFilenameFromUrl($this->source);
+
+        if (! is_string($filename) || $filename === '') {
+            throw new InvalidArgumentException('Could not guess the name of the image. Please provide a filename.');
+        }
+
+        $idPrefix = $this->getKey() ? sprintf('%s_', $this->getKey()) : '';
+
+        if ($idPrefix === '' || Str::startsWith($filename, $idPrefix)) {
+            return $filename;
+        }
+
+        return $idPrefix . ltrim($filename, '/');
     }
 
     /**
