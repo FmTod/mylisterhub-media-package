@@ -149,13 +149,8 @@ class Image extends Model
             $disk = (string) config('media.storage.images.disk', 'public');
         }
 
-        // If no filename is provided, generate one based on the source URL and current timestamp
         if (is_null($filename) || $filename === '') {
-            /** @noinspection PhpVoidFunctionResultUsedInspection */
-            $filename = throw_unless(
-                condition: $this->name ?? Media::getFilenameFromUrl($this->source),
-                exception: new InvalidArgumentException('Could not guess the name of the image. Please provide a filename.')
-            );
+            $filename = $this->defaultStoreFilename();
         }
 
         // Extract the file extension and name from the provided filename
@@ -193,6 +188,23 @@ class Image extends Model
         ]);
 
         return $this;
+    }
+
+    protected function defaultStoreFilename(): string
+    {
+        $filename = $this->name ?? Media::getFilenameFromUrl($this->source);
+
+        if (! is_string($filename) || $filename === '') {
+            throw new InvalidArgumentException('Could not guess the name of the image. Please provide a filename.');
+        }
+
+        $idPrefix = $this->getKey() ? sprintf('%s_', $this->getKey()) : '';
+
+        if ($idPrefix === '' || Str::startsWith($filename, $idPrefix)) {
+            return $filename;
+        }
+
+        return $idPrefix . ltrim($filename, '/');
     }
 
     /**
