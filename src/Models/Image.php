@@ -95,7 +95,7 @@ class Image extends Model
 
         // Download file to temp location (supports remote disks like S3)
         $extension = pathinfo($this->source, PATHINFO_EXTENSION) ?: 'jpg';
-        $tempPath = tempnam(sys_get_temp_dir(), 'media_rotate_').'.'.$extension;
+        $tempPath = tempnam(sys_get_temp_dir(), 'media_rotate_') . '.' . $extension;
         $stream = Storage::disk($disk)->readStream($relativePath);
 
         if ($stream === false) {
@@ -218,12 +218,12 @@ class Image extends Model
 
         // Replace existing _t param (added by url accessor) rather than appending a duplicate
         if (str_contains($url, '_t=')) {
-            return (string) preg_replace('/(_t=)[^&]+/', '${1}'.now()->getTimestamp(), $url);
+            return (string) preg_replace('/(_t=)[^&]+/', '${1}' . now()->getTimestamp(), $url);
         }
 
         $separator = parse_url($url, PHP_URL_QUERY) ? '&' : '?';
 
-        return $url.$separator.'_t='.now()->getTimestamp();
+        return $url . $separator . '_t=' . now()->getTimestamp();
     }
 
     /**
@@ -270,7 +270,7 @@ class Image extends Model
             return $filename;
         }
 
-        return $idPrefix.mb_ltrim($filename, '/');
+        return $idPrefix . mb_ltrim($filename, '/');
     }
 
     /**
