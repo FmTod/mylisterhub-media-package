@@ -86,7 +86,7 @@ class Image extends Model
         }
 
         $disk = (string) config('media.storage.images.disk', 'public');
-        $path = trim(config('media.storage.images.path', 'media/images'), '/');
+        $path = mb_trim(config('media.storage.images.path', 'media/images'), '/');
         $relativePath = "{$path}/{$this->source}";
 
         if (! Storage::disk($disk)->exists($relativePath)) {
@@ -95,7 +95,7 @@ class Image extends Model
 
         // Download file to temp location (supports remote disks like S3)
         $extension = pathinfo($this->source, PATHINFO_EXTENSION) ?: 'jpg';
-        $tempPath = tempnam(sys_get_temp_dir(), 'media_rotate_') . '.' . $extension;
+        $tempPath = tempnam(sys_get_temp_dir(), 'media_rotate_').'.'.$extension;
         $stream = Storage::disk($disk)->readStream($relativePath);
 
         if ($stream === false) {
@@ -212,8 +212,18 @@ class Image extends Model
             }, $this->url)
             : $this->url;
 
-        // Add cache busting parameter if needed
-        return $url . ($bustCache ? (parse_url($url, PHP_URL_QUERY) ? '&' : '?') . '_t=' . now()->getTimestamp() : '');
+        if (! $bustCache) {
+            return $url;
+        }
+
+        // Replace existing _t param (added by url accessor) rather than appending a duplicate
+        if (str_contains($url, '_t=')) {
+            return (string) preg_replace('/(_t=)[^&]+/', '${1}'.now()->getTimestamp(), $url);
+        }
+
+        $separator = parse_url($url, PHP_URL_QUERY) ? '&' : '?';
+
+        return $url.$separator.'_t='.now()->getTimestamp();
     }
 
     /**
@@ -260,7 +270,7 @@ class Image extends Model
             return $filename;
         }
 
-        return $idPrefix . ltrim($filename, '/');
+        return $idPrefix.mb_ltrim($filename, '/');
     }
 
     /**
@@ -281,9 +291,25 @@ class Image extends Model
     protected function url(): Attribute
     {
         return Attribute::get(
-            static fn ($value, $attributes): string => isset($attributes['source'])
-                ? Media::getImageUrl($attributes['source'])
-                : '',
+            static function ($value, $attributes): string {
+                if (! isset($attributes['source'])) {
+                    return '';
+                }
+
+                $url = Media::getImageUrl($attributes['source']);
+
+                $isRemote = Str::isMatch('/^http(s)?:\/\//', $attributes['source']);
+
+                if (! $isRemote && ! empty($attributes['updated_at'])) {
+                    $timestamp = strtotime($attributes['updated_at']);
+                    if ($timestamp !== false) {
+                        $separator = parse_url($url, PHP_URL_QUERY) ? '&' : '?';
+                        $url .= "{$separator}_t={$timestamp}";
+                    }
+                }
+
+                return $url;
+            }
         );
     }
 
