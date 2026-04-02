@@ -132,6 +132,13 @@ class Image extends Model
             'height' => $spatie->getHeight(),
         ])->save();
 
+        // Ensure updated_at is always refreshed for cache-busting.
+        // When dimensions are unchanged (e.g. 180° rotation), the model is not
+        // dirty so save() is a no-op — touch() forces the timestamp update.
+        if (! $this->wasChanged()) {
+            $this->touch();
+        }
+
         return $this->refresh();
     }
 
