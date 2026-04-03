@@ -49,6 +49,13 @@ class ImageController extends Controller
             'height' => $result->height,
         ]);
 
+        // Ensure updated_at is always refreshed for cache-busting.
+        // When attributes are unchanged (e.g. image file was just edited), the model is not
+        // dirty so save() is a no-op — touch() forces the timestamp update.
+        if (! $this->wasChanged()) {
+            $this->touch();
+        }
+
         return $this->response($image);
     }
 
