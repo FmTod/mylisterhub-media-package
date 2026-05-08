@@ -51,8 +51,8 @@ class Media
             $processedFilename = "{$nameWithoutExtension}.webp";
 
             // If the destination path has the extension, replace it with .webp
-            if (Str::endsWith($destinationPath, $fileExtension)) {
-                $destinationPath = (string) Str::of($destinationPath)->beforeLast($fileExtension)->append('.webp');
+            if (Str::endsWith($destinationPath, ".{$fileExtension}")) {
+                $destinationPath = (string) Str::of($destinationPath)->beforeLast(".{$fileExtension}")->append('.webp');
             }
 
             // Format the image as WebP
