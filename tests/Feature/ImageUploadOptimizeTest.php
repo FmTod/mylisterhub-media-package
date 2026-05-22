@@ -56,7 +56,7 @@ it('fails validation when optimize is not a boolean', function () {
 });
 
 it('passes optimize parameter to createImageFromFile for direct uploads', function () {
-    $controller = new ImageController();
+    $controller = new ImageController;
     $method = new ReflectionMethod($controller, 'processUploadedFile');
     $method->setAccessible(true);
 
@@ -71,7 +71,7 @@ it('passes optimize parameter to createImageFromFile for direct uploads', functi
 });
 
 it('defaults optimize to null for direct uploads when not provided', function () {
-    $controller = new ImageController();
+    $controller = new ImageController;
     $method = new ReflectionMethod($controller, 'processUploadedFile');
     $method->setAccessible(true);
 
@@ -86,7 +86,7 @@ it('defaults optimize to null for direct uploads when not provided', function ()
 });
 
 it('passes optimize false to createImageFromFile', function () {
-    $controller = new ImageController();
+    $controller = new ImageController;
     $method = new ReflectionMethod($controller, 'processUploadedFile');
     $method->setAccessible(true);
 
