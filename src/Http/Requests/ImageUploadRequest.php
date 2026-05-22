@@ -33,6 +33,7 @@ class ImageUploadRequest extends FormRequest
                 'sometimes',
                 Rule::in(['filepond', 'files']),
             ],
+            'optimize' => ['nullable', 'boolean'],
             'files.*' => $this->type() === 'filepond'
                 ? [
                     'required',

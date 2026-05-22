@@ -45,19 +45,21 @@ class OptimizedFilepondService extends FilepondService
         }
 
         if (is_array($file)) {
-            return array_map(fn ($f) => $this->processImageFile($f), $file);
+            return array_map(fn ($f) => $this->processImageFile($f, $request), $file);
         }
 
-        return $this->processImageFile($file);
+        return $this->processImageFile($file, $request);
     }
 
     /**
      * Process a file if it's an image, otherwise return as-is
      */
-    protected function processImageFile(UploadedFile $file): UploadedFile
+    protected function processImageFile(UploadedFile $file, Request $request): UploadedFile
     {
         $allowedMimes = config('media.storage.images.allowed_mimes', ['jpg', 'jpeg', 'png', 'webp']);
-        $optimize = config('media.storage.images.optimize', true);
+        $optimize = $request->has('optimize')
+            ? $request->boolean('optimize')
+            : config('media.storage.images.optimize', true);
 
         if (! $optimize || ! $file->isValid()) {
             return $file;

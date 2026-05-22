@@ -65,7 +65,9 @@ class ImageController extends Controller
             ? $request->input('files')
             : $request->file('files');
 
-        $images = array_map(fn ($file) => $this->processUploadedFile($file), Arr::wrap($files));
+        $optimize = $request->boolean('optimize');
+
+        $images = array_map(fn ($file) => $this->processUploadedFile($file, $optimize), Arr::wrap($files));
 
         return $this->response(collect($images));
     }
@@ -106,10 +108,10 @@ class ImageController extends Controller
         return $this->response($images);
     }
 
-    protected function processUploadedFile(UploadedFile|string $file): Image
+    protected function processUploadedFile(UploadedFile|string $file, ?bool $optimize = null): Image
     {
         if ($file instanceof UploadedFile) {
-            return Media::createImageFromFile($file);
+            return Media::createImageFromFile($file, optimize: $optimize);
         }
 
         $path = config('media.storage.images.path');
