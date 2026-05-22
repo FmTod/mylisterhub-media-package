@@ -65,7 +65,7 @@ class ImageController extends Controller
             ? $request->input('files')
             : $request->file('files');
 
-        $optimize = $request->boolean('optimize');
+        $optimize = $request->has('optimize') ? $request->boolean('optimize') : null;
 
         $images = array_map(fn ($file) => $this->processUploadedFile($file, $optimize), Arr::wrap($files));
 
