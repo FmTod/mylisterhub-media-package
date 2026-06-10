@@ -6,14 +6,16 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use MyListerHub\Media\Facades\Media;
+use RahulHaque\Filepond\Models\Filepond;
 use RahulHaque\Filepond\Services\FilepondService;
+use RahulHaque\Filepond\Utils\FilepondUtil;
 
 /**
  * Optimized Filepond Service Decorator
  *
  * This service extends the base FilepondService to automatically process image files
- * during upload. It acts as a decorator that intercepts uploaded files and applies
- * image optimization before they are stored.
+ * during upload. It acts as a decorator that intercepts the upload in `store()` and
+ * applies image optimization before the file is persisted.
  *
  * Features:
  * - Automatic image resizing to maximum dimensions (default: 2000px)
@@ -28,27 +30,41 @@ use RahulHaque\Filepond\Services\FilepondService;
  * - media.storage.images.max_dimension - Maximum width/height
  *
  * @see \MyListerHub\Media\Media::processImage()
- * @see \RahulHaque\Filepond\Services\FilepondService
+ * @see FilepondService
  */
 class OptimizedFilepondService extends FilepondService
 {
     /**
-     * @return \Illuminate\Http\UploadedFile|\Illuminate\Http\UploadedFile[]|null
+     * Store the uploaded file, optimizing images before persistence.
+     *
+     * The upstream package no longer exposes a `getUploadedFile()` hook; `store()`
+     * resolves and persists the file inline. We mirror the parent's persistence
+     * logic here so we can swap in the optimized file. We deliberately do not
+     * rewrite the request's file bag — cached request files are not reliably
+     * refreshed, so the optimized file would be ignored.
      */
-    protected function getUploadedFile(Request $request): array|UploadedFile|null
+    public function store(Request $request): string
     {
-        /** @var \Illuminate\Http\UploadedFile|\Illuminate\Http\UploadedFile[]|null $file */
-        $file = parent::getUploadedFile($request);
+        $file = $this->processImageFile(FilepondUtil::getUploadedFile($request), $request);
 
-        if ($file === null) {
-            return null;
-        }
+        $metadata = FilepondUtil::getMetadata($request);
+        $model = config('filepond.model', Filepond::class);
 
-        if (is_array($file)) {
-            return array_map(fn ($f) => $this->processImageFile($f, $request), $file);
-        }
+        $filepond = $model::create([
+            'filepath' => $file->store(
+                config('filepond.temp_folder', 'filepond/temp'),
+                config('filepond.temp_disk', 'local'),
+            ),
+            'filename' => $file->getClientOriginalName(),
+            'extension' => $file->getClientOriginalExtension(),
+            'mimetype' => $file->getClientMimeType(),
+            'metadata' => $metadata,
+            'disk' => config('filepond.disk', 'public'),
+            'created_by' => auth()->id(),
+            'expires_at' => now()->addMinutes(config('filepond.expiration', 30)),
+        ]);
 
-        return $this->processImageFile($file, $request);
+        return FilepondUtil::makeFilepondId(['id' => $filepond->id]);
     }
 
     /**

@@ -9,11 +9,9 @@ use RahulHaque\Filepond\Factories\UploaderManager;
 
 function createService(): OptimizedFilepondService
 {
-    $service = new OptimizedFilepondService(
+    return new OptimizedFilepondService(
         app(UploaderManager::class)
     );
-
-    return $service;
 }
 
 function processImageFile(OptimizedFilepondService $service, UploadedFile $file, Request $request): UploadedFile
