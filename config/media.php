@@ -49,6 +49,8 @@ return [
                 'jpeg',
                 'png',
                 'webp',
+                'svg',
+                'heic',
             ],
         ],
 
