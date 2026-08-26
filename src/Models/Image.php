@@ -79,6 +79,22 @@ class Image extends Model
     }
 
     /**
+     * The morph key an imageable is attached through, whichever column holds it.
+     *
+     * `imageables` splits the key in two: uuid-keyed models (the AI generation batch)
+     * attach through `imageable_uuid` and leave the numeric `imageable_id` null, and
+     * every other model does the reverse. Exactly one is ever populated, so coalescing
+     * reads the right one without having to guess from the model's key type — a guess
+     * that would misread any string-keyed model attached through `imageable_id`.
+     *
+     * Raw because there is no fluent form for a coalesce in a where's left-hand side.
+     */
+    protected static function imageableKey(): Expression
+    {
+        return DB::raw('coalesce(imageables.imageable_uuid, imageables.imageable_id)');
+    }
+
+    /**
      * Rotate image using Spatie Image Orientation enum. Remote URL sources are not supported.
      */
     public function rotate(Orientation $orientation): static
@@ -268,22 +284,6 @@ class Image extends Model
                     });
                 });
         });
-    }
-
-    /**
-     * The morph key an imageable is attached through, whichever column holds it.
-     *
-     * `imageables` splits the key in two: uuid-keyed models (the AI generation batch)
-     * attach through `imageable_uuid` and leave the numeric `imageable_id` null, and
-     * every other model does the reverse. Exactly one is ever populated, so coalescing
-     * reads the right one without having to guess from the model's key type — a guess
-     * that would misread any string-keyed model attached through `imageable_id`.
-     *
-     * Raw because there is no fluent form for a coalesce in a where's left-hand side.
-     */
-    protected static function imageableKey(): Expression
-    {
-        return DB::raw('coalesce(imageables.imageable_uuid, imageables.imageable_id)');
     }
 
     protected function defaultStoreFilename(): string
