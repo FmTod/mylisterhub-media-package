@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -235,6 +237,11 @@ class Image extends Model
 
     /**
      * Scope a query to only include images that are not used by any model, optionally excluding a type or type and id.
+     *
+     * The existence check joins on `image_id`. It used to compare `imageable_id` — the morph
+     * key — against `images.id`, which answers a different question entirely: an image came
+     * back "unused" unless some *other* record happened to carry a morph key equal to its id.
+     * Callers that hard-delete what this reports were deleting images still in use.
      */
     public function scopeWhereNotUsed(Builder $query, Model|string|null $except = null): Builder
     {
@@ -242,9 +249,9 @@ class Image extends Model
             $query
                 ->select(DB::raw(1))
                 ->from('imageables')
-                ->whereColumn('imageables.imageable_id', 'images.id')
-                ->when($except, function (Builder $conditionalQuery) use ($except) {
-                    $conditionalQuery->where(function (Builder $subQuery) use ($except) {
+                ->whereColumn('imageables.image_id', 'images.id')
+                ->when($except, function (QueryBuilder $conditionalQuery) use ($except) {
+                    $conditionalQuery->where(function (QueryBuilder $subQuery) use ($except) {
                         $model = is_string($except) ? $except::newModelInstance() : $except;
                         $morphType = $model->getMorphClass();
 
@@ -252,15 +259,31 @@ class Image extends Model
                             ->where('imageable_type', '!=', $morphType)
                             ->when(
                                 value: $except instanceof Model,
-                                callback: fn (Builder $q) => $q->orWhere(function (Builder $innerQuery) use ($except, $morphType) {
+                                callback: fn (QueryBuilder $q) => $q->orWhere(function (QueryBuilder $innerQuery) use ($model, $morphType) {
                                     $innerQuery
                                         ->where('imageable_type', $morphType)
-                                        ->where('imageable_id', '!=', $except->getKey());
+                                        ->where(self::imageableKey(), '!=', $model->getKey());
                                 }),
                             );
                     });
                 });
         });
+    }
+
+    /**
+     * The morph key an imageable is attached through, whichever column holds it.
+     *
+     * `imageables` splits the key in two: uuid-keyed models (the AI generation batch)
+     * attach through `imageable_uuid` and leave the numeric `imageable_id` null, and
+     * every other model does the reverse. Exactly one is ever populated, so coalescing
+     * reads the right one without having to guess from the model's key type — a guess
+     * that would misread any string-keyed model attached through `imageable_id`.
+     *
+     * Raw because there is no fluent form for a coalesce in a where's left-hand side.
+     */
+    protected static function imageableKey(): Expression
+    {
+        return DB::raw('coalesce(imageables.imageable_uuid, imageables.imageable_id)');
     }
 
     protected function defaultStoreFilename(): string
