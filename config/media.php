@@ -51,6 +51,7 @@ return [
                 'webp',
                 'svg',
                 'heic',
+                'heif',
             ],
         ],
 
