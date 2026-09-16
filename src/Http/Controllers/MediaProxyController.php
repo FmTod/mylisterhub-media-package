@@ -2,9 +2,10 @@
 
 namespace MyListerHub\Media\Http\Controllers;
 
-use Exception;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -14,82 +15,104 @@ class MediaProxyController extends Controller
      * Proxy an external image to avoid CORS issues.
      * Streams the response to avoid memory issues with large files.
      */
-    public function proxy(Request $request): ?StreamedResponse
+    public function proxy(Request $request): StreamedResponse
     {
-        $url = $request->query('url');
+        $url = $request->string('url')->toString();
 
-        if (! $url) {
+        if ($url === '') {
             abort(400, 'URL parameter is required');
         }
 
-        // Validate URL
-        if (! filter_var($url, FILTER_VALIDATE_URL)) {
-            Log::error('Invalid URL provided to image proxy', ['url' => $url]);
+        $target = $this->resolvePublicTarget($url);
+
+        if ($target === null) {
+            Log::warning('Rejected image proxy URL', ['url' => $url]);
             abort(400, 'Invalid URL');
         }
 
         try {
-            // Create a stream resource from the URL
-            // specific timeout to avoid hanging processes
-            $context = stream_context_create([
-                'http' => [
-                    'timeout' => 30,
-                    'ignore_errors' => true, // Handle errors manually
-                ],
-            ]);
+            $response = Http::withOptions([
+                'stream' => true,
+                'timeout' => 30,
+                // A redirect could point at an internal address that was never validated.
+                'allow_redirects' => false,
+                // Connect to the address validated above; a second DNS lookup could return a private one.
+                'curl' => [CURLOPT_RESOLVE => ["{$target['host']}:{$target['port']}:{$target['ip']}"]],
+            ])->get($url);
+        } catch (ConnectionException $exception) {
+            Log::error('Failed to open stream for image proxy', ['url' => $url, 'error' => $exception->getMessage()]);
+            abort(404, 'Image not found or inaccessible');
+        }
 
-            $stream = @fopen($url, 'rb', false, $context);
+        if (! $response->successful()) {
+            Log::error('Remote server returned error', ['url' => $url, 'status' => $response->status()]);
+            abort($response->status() >= 400 ? $response->status() : 502, 'Remote server error');
+        }
 
-            if ($stream === false) {
-                Log::error('Failed to open stream for image proxy', ['url' => $url]);
-                abort(404, 'Image not found or inaccessible');
-            }
+        $body = $response->toPsrResponse()->getBody();
 
-            // Get headers from the stream wrapper
-            $meta = stream_get_meta_data($stream);
-            $wrapperData = $meta['wrapper_data'] ?? [];
-
-            // Extract content type and status code
-            $contentType = 'application/octet-stream';
-            $statusCode = 200;
-
-            foreach ($wrapperData as $header) {
-                if (stripos($header, 'Content-Type:') === 0) {
-                    $contentType = trim(substr($header, 13));
+        return response()->stream(
+            function () use ($body) {
+                while (! $body->eof()) {
+                    echo $body->read(8192);
                 }
-                if (preg_match('/^HTTP\/[\d.]+\s+(\d+)/', $header, $matches)) {
-                    $statusCode = (int) $matches[1];
-                }
-            }
+            },
+            200,
+            [
+                'Content-Type' => $response->header('Content-Type') ?: 'application/octet-stream',
+                'Access-Control-Allow-Origin' => '*',
+                'Cache-Control' => 'public, max-age=3600',
+            ]
+        );
+    }
 
-            if ($statusCode >= 400) {
-                fclose($stream);
-                Log::error('Remote server returned error', ['url' => $url, 'status' => $statusCode]);
-                abort($statusCode, 'Remote server error');
-            }
+    /**
+     * Accept only http(s) URLs whose host resolves exclusively to public addresses.
+     *
+     * @return array{host: string, port: int, ip: string}|null
+     */
+    protected function resolvePublicTarget(string $url): ?array
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower($parts['scheme'] ?? '');
+        $host = $parts['host'] ?? '';
 
-            // Return streamed response
-            return response()->stream(
-                function () use ($stream) {
-                    fpassthru($stream);
-                    fclose($stream);
-                },
-                200,
-                [
-                    'Content-Type' => $contentType,
-                    'Access-Control-Allow-Origin' => '*',
-                    'Cache-Control' => 'public, max-age=3600',
-                ]
-            );
-
-        } catch (Exception $e) {
-            Log::error('Exception in image proxy', [
-                'url' => $url,
-                'error' => $e->getMessage(),
-            ]);
-            abort(500, 'Failed to proxy image: ' . $e->getMessage());
-
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
             return null;
         }
+
+        $hostname = trim($host, '[]');
+
+        $addresses = filter_var($hostname, FILTER_VALIDATE_IP) !== false
+            ? [$hostname]
+            : array_map(
+                static fn (array $record): string => $record['ip'] ?? $record['ipv6'],
+                // Unresolvable hosts raise a warning, which Laravel would turn into a 500.
+                @dns_get_record($hostname, DNS_A | DNS_AAAA) ?: [],
+            );
+
+        // Every record must be public: a host answering with one public and one private address is not.
+        if ($addresses === [] || array_filter($addresses, fn (string $ip): bool => ! $this->isPublicAddress($ip)) !== []) {
+            return null;
+        }
+
+        $ip = $addresses[0];
+
+        return [
+            'host' => $hostname,
+            'port' => $parts['port'] ?? ($scheme === 'https' ? 443 : 80),
+            'ip' => str_contains($ip, ':') ? "[{$ip}]" : $ip,
+        ];
+    }
+
+    protected function isPublicAddress(string $ip): bool
+    {
+        if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+            return false;
+        }
+
+        // 100.64.0.0/10 (carrier-grade NAT) passes the flags above but is routinely used for cluster-internal addressing.
+        return ! (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
+            && (ip2long($ip) & 0xFFC00000) === (ip2long('100.64.0.0') & 0xFFC00000));
     }
 }
